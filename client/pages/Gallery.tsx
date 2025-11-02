@@ -70,13 +70,21 @@ export default function Gallery() {
           id: outfit.id,
           image_url: outfit.image_url,
           created_at: outfit.created_at,
+          file_hash: outfit.file_hash,
           averageRating: count > 0 ? sum / count : 0,
           totalRatings: count,
         }))
         .filter((outfit) => outfit.totalRatings > 0) // Only show outfits with ratings
         .sort((a, b) => b.averageRating - a.averageRating) // Sort by rating descending
         .filter((outfit, index, self) => {
-          // Remove duplicates: keep only first occurrence of each unique image_url
+          // Remove duplicates: compare by file_hash (actual photo content)
+          // If file_hash is null, fall back to image_url comparison
+          if (outfit.file_hash) {
+            return (
+              index ===
+              self.findIndex((o) => o.file_hash === outfit.file_hash)
+            );
+          }
           return index === self.findIndex((o) => o.image_url === outfit.image_url);
         });
 
