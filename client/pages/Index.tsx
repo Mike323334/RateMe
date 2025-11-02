@@ -57,7 +57,9 @@ export default function RateMe() {
     const buffer = await file.arrayBuffer();
     const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+    const hashHex = hashArray
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
     return hashHex;
   };
 
@@ -183,7 +185,7 @@ export default function RateMe() {
   const averageRating =
     ratings.length > 0
       ? (ratings.reduce((sum, r) => sum + r.score, 0) / ratings.length).toFixed(
-          1
+          1,
         )
       : 0;
 
@@ -241,7 +243,8 @@ export default function RateMe() {
                           onClick={() => {
                             setImageUrl("");
                             setOutfitId("");
-                            if (fileInputRef.current) fileInputRef.current.value = "";
+                            if (fileInputRef.current)
+                              fileInputRef.current.value = "";
                           }}
                           className="w-full bg-red-500/90 hover:bg-red-600 text-white font-semibold py-2 rounded-lg transition-colors duration-200"
                         >
@@ -372,7 +375,9 @@ export default function RateMe() {
               {loading ? (
                 <div className="text-center py-12 px-4">
                   <Loader2 className="w-12 h-12 text-purple-500/50 mx-auto mb-3 animate-spin" />
-                  <p className="text-purple-300/50 text-sm">Loading ratings...</p>
+                  <p className="text-purple-300/50 text-sm">
+                    Loading ratings...
+                  </p>
                 </div>
               ) : ratings.length === 0 ? (
                 <div className="text-center py-12 px-4">
