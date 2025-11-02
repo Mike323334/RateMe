@@ -192,7 +192,7 @@ export default function RateMe() {
               <div className="relative bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-purple-500/30 p-4 sm:p-6 transition-all duration-300">
                 {imageUrl ? (
                   <div className="space-y-6">
-                    <div className="relative rounded-xl overflow-hidden bg-slate-800 border border-purple-500/20 max-h-[600px]">
+                    <div className="relative rounded-xl overflow-hidden bg-slate-800 border border-purple-500/20">
                       <img
                         src={imageUrl}
                         alt="Outfit"
