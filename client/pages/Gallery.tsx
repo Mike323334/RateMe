@@ -8,6 +8,7 @@ interface OutfitWithRating {
   id: string;
   image_url: string;
   created_at: string;
+  file_hash: string | null;
   averageRating: number;
   totalRatings: number;
 }
