@@ -73,7 +73,11 @@ export default function Gallery() {
           totalRatings: count,
         }))
         .filter((outfit) => outfit.totalRatings > 0) // Only show outfits with ratings
-        .sort((a, b) => b.averageRating - a.averageRating); // Sort by rating descending
+        .sort((a, b) => b.averageRating - a.averageRating) // Sort by rating descending
+        .filter((outfit, index, self) => {
+          // Remove duplicates: keep only first occurrence of each unique image_url
+          return index === self.findIndex((o) => o.image_url === outfit.image_url);
+        });
 
       setOutfits(outfitsWithRatings);
     } catch (error) {
