@@ -1,46 +1,139 @@
-import { useState, useRef } from "react";
-import { Star, Upload, RotateCcw } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Star, Upload, RotateCcw, Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 interface Rating {
+  id: string;
   score: number;
   feedback: string;
-  timestamp: Date;
+  created_at: string;
+  outfit_id: string;
+}
+
+interface Outfit {
+  id: string;
+  image_url: string;
+  created_at: string;
 }
 
 export default function RateMe() {
   const [imageUrl, setImageUrl] = useState<string>("");
+  const [outfitId, setOutfitId] = useState<string>("");
   const [rating, setRating] = useState<number>(0);
   const [hoverRating, setHoverRating] = useState<number>(0);
   const [feedback, setFeedback] = useState<string>("");
   const [ratings, setRatings] = useState<Rating[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load ratings on component mount
+  useEffect(() => {
+    loadRatings();
+  }, []);
+
+  const loadRatings = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("ratings")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setRatings(data || []);
+    } catch (error) {
+      console.error("Error loading ratings:", error);
+      toast.error("Failed to load ratings");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploading(true);
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setImageUrl(event.target?.result as string);
+    try {
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}-${file.name}`;
+
+      // Upload image to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("outfit-images")
+        .upload(`outfits/${fileName}`, file);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const {
+        data: { publicUrl },
+      } = supabase.storage
+        .from("outfit-images")
+        .getPublicUrl(`outfits/${fileName}`);
+
+      // Save outfit record to database
+      const { data: outfitData, error: dbError } = await supabase
+        .from("outfits")
+        .insert([
+          {
+            image_url: publicUrl,
+            image_path: uploadData.path,
+          },
+        ])
+        .select()
+        .single();
+
+      if (dbError) throw dbError;
+
+      setImageUrl(publicUrl);
+      setOutfitId(outfitData.id);
       resetRating();
+      toast.success("Image uploaded successfully!");
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      toast.error("Failed to upload image");
+    } finally {
       setUploading(false);
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
-  const handleSubmitRating = () => {
-    if (rating === 0) return;
+  const handleSubmitRating = async () => {
+    if (rating === 0 || !outfitId) {
+      toast.error("Please select a rating");
+      return;
+    }
 
-    const newRating: Rating = {
-      score: rating,
-      feedback: feedback,
-      timestamp: new Date(),
-    };
+    setSubmitting(true);
+    try {
+      const { data: newRating, error } = await supabase
+        .from("ratings")
+        .insert([
+          {
+            outfit_id: outfitId,
+            score: rating,
+            feedback: feedback,
+          },
+        ])
+        .select()
+        .single();
 
-    setRatings([newRating, ...ratings]);
-    resetRating();
+      if (error) throw error;
+
+      setRatings([newRating, ...ratings]);
+      setImageUrl("");
+      setOutfitId("");
+      resetRating();
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      toast.success("Rating submitted!");
+    } catch (error) {
+      console.error("Error submitting rating:", error);
+      toast.error("Failed to submit rating");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const resetRating = () => {
@@ -48,9 +141,18 @@ export default function RateMe() {
     setFeedback("");
   };
 
+  const handleReset = () => {
+    setImageUrl("");
+    setOutfitId("");
+    resetRating();
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const averageRating =
     ratings.length > 0
-      ? (ratings.reduce((sum, r) => sum + r.score, 0) / ratings.length).toFixed(1)
+      ? (ratings.reduce((sum, r) => sum + r.score, 0) / ratings.length).toFixed(
+          1
+        )
       : 0;
 
   return (
@@ -100,6 +202,7 @@ export default function RateMe() {
                         <button
                           onClick={() => {
                             setImageUrl("");
+                            setOutfitId("");
                             if (fileInputRef.current) fileInputRef.current.value = "";
                           }}
                           className="w-full bg-red-500/90 hover:bg-red-600 text-white font-semibold py-2 rounded-lg transition-colors duration-200"
@@ -121,7 +224,8 @@ export default function RateMe() {
                             onClick={() => setRating(score)}
                             onMouseEnter={() => setHoverRating(score)}
                             onMouseLeave={() => setHoverRating(0)}
-                            className={`w-10 sm:w-12 h-10 sm:h-12 rounded-lg font-bold text-sm sm:text-base transition-all duration-200 transform hover:scale-110 ${
+                            disabled={submitting}
+                            className={`w-10 sm:w-12 h-10 sm:h-12 rounded-lg font-bold text-sm sm:text-base transition-all duration-200 transform hover:scale-110 disabled:opacity-50 ${
                               score <= (hoverRating || rating)
                                 ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/50"
                                 : "bg-slate-800/50 text-purple-300/60 border border-purple-500/20 hover:border-purple-500/50"
@@ -156,7 +260,8 @@ export default function RateMe() {
                         value={feedback}
                         onChange={(e) => setFeedback(e.target.value)}
                         placeholder="Share your thoughts about this outfit..."
-                        className="w-full bg-slate-800/50 border border-purple-500/20 rounded-lg px-4 py-3 text-white placeholder-purple-300/40 focus:outline-none focus:border-purple-500/60 focus:ring-2 focus:ring-purple-500/20 transition-all duration-200 resize-none"
+                        disabled={submitting}
+                        className="w-full bg-slate-800/50 border border-purple-500/20 rounded-lg px-4 py-3 text-white placeholder-purple-300/40 focus:outline-none focus:border-purple-500/60 focus:ring-2 focus:ring-purple-500/20 transition-all duration-200 resize-none disabled:opacity-50"
                         rows={3}
                       />
                     </div>
@@ -165,22 +270,22 @@ export default function RateMe() {
                     <div className="flex gap-3 pt-2">
                       <button
                         onClick={handleSubmitRating}
-                        disabled={rating === 0}
-                        className={`flex-1 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 ${
-                          rating === 0
-                            ? "bg-slate-700/50 text-slate-400 cursor-not-allowed"
+                        disabled={rating === 0 || submitting}
+                        className={`flex-1 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
+                          rating === 0 || submitting
+                            ? "bg-slate-700/50 text-slate-400"
                             : "bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:shadow-lg hover:shadow-purple-500/50"
                         }`}
                       >
+                        {submitting && (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        )}
                         Submit Rating
                       </button>
                       <button
-                        onClick={() => {
-                          setImageUrl("");
-                          resetRating();
-                          if (fileInputRef.current) fileInputRef.current.value = "";
-                        }}
-                        className="px-4 py-3 rounded-lg font-semibold bg-slate-800/50 text-purple-300 border border-purple-500/20 hover:border-purple-500/60 transition-all duration-200 hover:bg-slate-800"
+                        onClick={handleReset}
+                        disabled={submitting}
+                        className="px-4 py-3 rounded-lg font-semibold bg-slate-800/50 text-purple-300 border border-purple-500/20 hover:border-purple-500/60 transition-all duration-200 hover:bg-slate-800 disabled:opacity-50"
                       >
                         <RotateCcw className="w-5 h-5" />
                       </button>
@@ -202,7 +307,8 @@ export default function RateMe() {
                         Upload an outfit
                       </h3>
                       <p className="text-purple-300/60 text-center text-sm sm:text-base max-w-sm">
-                        Click to select an image or drag and drop your outfit photo
+                        Click to select an image or drag and drop your outfit
+                        photo
                       </p>
                     </div>
                   </div>
@@ -213,7 +319,7 @@ export default function RateMe() {
                   accept="image/*"
                   onChange={handleImageUpload}
                   className="hidden"
-                  disabled={uploading}
+                  disabled={uploading || submitting}
                 />
               </div>
             </div>
@@ -225,7 +331,12 @@ export default function RateMe() {
               Recent Ratings
             </h2>
             <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-              {ratings.length === 0 ? (
+              {loading ? (
+                <div className="text-center py-12 px-4">
+                  <Loader2 className="w-12 h-12 text-purple-500/50 mx-auto mb-3 animate-spin" />
+                  <p className="text-purple-300/50 text-sm">Loading ratings...</p>
+                </div>
+              ) : ratings.length === 0 ? (
                 <div className="text-center py-12 px-4">
                   <Star className="w-12 h-12 text-purple-500/30 mx-auto mb-3" />
                   <p className="text-purple-300/50 text-sm">
@@ -233,9 +344,9 @@ export default function RateMe() {
                   </p>
                 </div>
               ) : (
-                ratings.map((r, idx) => (
+                ratings.map((r) => (
                   <div
-                    key={idx}
+                    key={r.id}
                     className="bg-slate-900/60 backdrop-blur-xl rounded-xl border border-purple-500/20 p-4 sm:p-5 hover:border-purple-500/40 transition-all duration-200 group"
                   >
                     <div className="flex items-start justify-between mb-2">
@@ -261,8 +372,8 @@ export default function RateMe() {
                       </p>
                     )}
                     <p className="text-purple-300/40 text-xs">
-                      {r.timestamp.toLocaleDateString()}{" "}
-                      {r.timestamp.toLocaleTimeString([], {
+                      {new Date(r.created_at).toLocaleDateString()}{" "}
+                      {new Date(r.created_at).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}
