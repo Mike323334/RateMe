@@ -189,15 +189,26 @@ export default function RateMe() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950">
+      {/* Logo Section */}
+      <div className="w-full bg-gradient-to-b from-purple-950/50 to-slate-950/50 backdrop-blur-xl border-b border-purple-500/20 py-6 sm:py-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-center">
+          <img
+            src="https://cdn.builder.io/api/v1/image/assets%2F173ddb847d934f03b005a5ed9efda2f1%2Fc930586ccf9d4ea2a4f1fc52ac40b603?format=webp&width=800"
+            alt="RateMe Logo"
+            className="h-20 sm:h-24 lg:h-28 w-auto object-contain"
+          />
+        </div>
+      </div>
+
       {/* Header */}
       <header className="border-b border-purple-500/20 backdrop-blur-xl bg-slate-950/50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 bg-clip-text text-transparent">
                 RateMe
               </h1>
-              <p className="text-purple-300/70 text-sm sm:text-base mt-1">
+              <p className="text-purple-300/70 text-xs sm:text-sm mt-1">
                 Rate outfits on a scale of 1-10
               </p>
             </div>
