@@ -65,7 +65,9 @@ export default function Gallery() {
       });
 
       // Convert to array with calculated averages and sort by rating
-      const outfitsWithRatings: OutfitWithRating[] = Array.from(outfitMap.values())
+      const outfitsWithRatings: OutfitWithRating[] = Array.from(
+        outfitMap.values(),
+      )
         .map(({ outfit, count, sum }) => ({
           id: outfit.id,
           image_url: outfit.image_url,
@@ -81,11 +83,12 @@ export default function Gallery() {
           // If file_hash is null, fall back to image_url comparison
           if (outfit.file_hash) {
             return (
-              index ===
-              self.findIndex((o) => o.file_hash === outfit.file_hash)
+              index === self.findIndex((o) => o.file_hash === outfit.file_hash)
             );
           }
-          return index === self.findIndex((o) => o.image_url === outfit.image_url);
+          return (
+            index === self.findIndex((o) => o.image_url === outfit.image_url)
+          );
         });
 
       setOutfits(outfitsWithRatings);
@@ -148,7 +151,8 @@ export default function Gallery() {
         ) : (
           <div>
             <p className="text-purple-300/70 mb-6 text-sm">
-              Showing {outfits.length} rated outfit{outfits.length !== 1 ? "s" : ""}
+              Showing {outfits.length} rated outfit
+              {outfits.length !== 1 ? "s" : ""}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {outfits.map((outfit) => (
@@ -187,7 +191,8 @@ export default function Gallery() {
                           {outfit.averageRating.toFixed(1)}
                         </p>
                         <p className="text-purple-300/60 text-xs">
-                          {outfit.totalRatings} rating{outfit.totalRatings !== 1 ? "s" : ""}
+                          {outfit.totalRatings} rating
+                          {outfit.totalRatings !== 1 ? "s" : ""}
                         </p>
                       </div>
                       <Star className="w-4 h-4 text-pink-400 fill-pink-400" />
