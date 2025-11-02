@@ -189,10 +189,10 @@ export default function RateMe() {
             {/* Image Upload Section */}
             <div className="group relative">
               <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              <div className="relative bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-purple-500/30 p-8 sm:p-10 transition-all duration-300">
+              <div className="relative bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-purple-500/30 p-4 sm:p-6 transition-all duration-300">
                 {imageUrl ? (
                   <div className="space-y-6">
-                    <div className="relative rounded-xl overflow-hidden bg-slate-800 border border-purple-500/20 max-h-96">
+                    <div className="relative rounded-xl overflow-hidden bg-slate-800 border border-purple-500/20 max-h-[600px]">
                       <img
                         src={imageUrl}
                         alt="Outfit"
