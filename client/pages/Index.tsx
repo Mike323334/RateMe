@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { Star, Upload, RotateCcw, Loader2 } from "lucide-react";
+import { Star, Upload, RotateCcw, Loader2, Grid } from "lucide-react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
