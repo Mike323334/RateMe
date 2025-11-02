@@ -170,13 +170,22 @@ export default function RateMe() {
                 Rate outfits on a scale of 1-10
               </p>
             </div>
-            <div className="text-right">
-              <div className="text-2xl sm:text-3xl font-bold text-transparent bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text">
-                {averageRating}
+            <div className="text-right flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
+              <Link
+                to="/gallery"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all duration-200 text-sm sm:text-base"
+              >
+                <Grid className="w-4 h-4" />
+                <span>Gallery</span>
+              </Link>
+              <div>
+                <div className="text-2xl sm:text-3xl font-bold text-transparent bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text">
+                  {averageRating}
+                </div>
+                <p className="text-purple-300/60 text-xs sm:text-sm">
+                  Avg Rating ({ratings.length})
+                </p>
               </div>
-              <p className="text-purple-300/60 text-xs sm:text-sm">
-                Avg Rating ({ratings.length})
-              </p>
             </div>
           </div>
         </div>
