@@ -192,11 +192,11 @@ export default function RateMe() {
               <div className="relative bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-purple-500/30 p-8 sm:p-10 transition-all duration-300">
                 {imageUrl ? (
                   <div className="space-y-6">
-                    <div className="relative aspect-square sm:aspect-video rounded-xl overflow-hidden bg-slate-800 border border-purple-500/20">
+                    <div className="relative rounded-xl overflow-hidden bg-slate-800 border border-purple-500/20 max-h-96">
                       <img
                         src={imageUrl}
                         alt="Outfit"
-                        className="w-full h-full object-cover"
+                        className="w-full h-auto object-contain"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
                         <button
