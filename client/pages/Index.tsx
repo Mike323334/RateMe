@@ -53,12 +53,42 @@ export default function RateMe() {
     }
   };
 
+  const calculateFileHash = async (file: File): Promise<string> => {
+    const buffer = await file.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+    return hashHex;
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploading(true);
     try {
+      // Calculate file hash to detect duplicates
+      const fileHash = await calculateFileHash(file);
+
+      // Check if this image already exists
+      const { data: existingOutfit, error: checkError } = await supabase
+        .from("outfits")
+        .select("id, image_url")
+        .eq("file_hash", fileHash)
+        .single();
+
+      if (checkError && checkError.code !== "PGRST116") {
+        // PGRST116 means no rows found, which is good
+        throw checkError;
+      }
+
+      if (existingOutfit) {
+        toast.error("This photo has already been uploaded!");
+        setUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}-${file.name}`;
 
       // Upload image to Supabase Storage
@@ -75,13 +105,14 @@ export default function RateMe() {
         .from("outfit-images")
         .getPublicUrl(`outfits/${fileName}`);
 
-      // Save outfit record to database
+      // Save outfit record to database with file hash
       const { data: outfitData, error: dbError } = await supabase
         .from("outfits")
         .insert([
           {
             image_url: publicUrl,
             image_path: uploadData.path,
+            file_hash: fileHash,
           },
         ])
         .select()
