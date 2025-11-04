@@ -3,6 +3,7 @@ import { Star, Upload, RotateCcw, Loader2, Grid } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import TypingInput from "../components/ui/typingInput"; 
 
 interface Rating {
   id: string;
@@ -21,6 +22,7 @@ interface Outfit {
 export default function RateMe() {
   const [imageUrl, setImageUrl] = useState<string>("");
   const [outfitId, setOutfitId] = useState<string>("");
+  const [username, setUsername] = useState<string>("");
   const [rating, setRating] = useState<number>(0);
   const [hoverRating, setHoverRating] = useState<number>(0);
   const [feedback, setFeedback] = useState<string>("");
@@ -67,53 +69,48 @@ export default function RateMe() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!username.trim()) {
+      toast.error("Please enter your username first");
+      return;
+    }
+
     setUploading(true);
     try {
-      // Calculate file hash to detect duplicates
       const fileHash = await calculateFileHash(file);
 
-      // Check if this image already exists
-      const { data: existingOutfit, error: checkError } = await supabase
-        .from("outfits")
-        .select("id, image_url")
-        .eq("file_hash", fileHash)
-        .single();
+      const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
+      const filePath = `outfits/${fileName}`;
 
-      if (checkError && checkError.code !== "PGRST116") {
-        // PGRST116 means no rows found, which is good
-        throw checkError;
-      }
-
-      if (existingOutfit) {
-        toast.error("This photo has already been uploaded!");
-        setUploading(false);
-        if (fileInputRef.current) fileInputRef.current.value = "";
-        return;
-      }
-
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}-${file.name}`;
-
-      // Upload image to Supabase Storage
+      // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("outfit-images")
-        .upload(`outfits/${fileName}`, file);
+        .upload(filePath, file);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        throw uploadError;
+      }
 
       // Get public URL
-      const {
-        data: { publicUrl },
-      } = supabase.storage
+      const { data } = await supabase.storage
         .from("outfit-images")
-        .getPublicUrl(`outfits/${fileName}`);
+        .getPublicUrl(filePath);
 
-      // Save outfit record to database with file hash
-      const { data: outfitData, error: dbError } = await supabase
+      // Defensive: determine image_path (some SDK versions return different shapes)
+      console.log('uploadData:', uploadData);
+      console.log('getPublicUrl data:', data);
+      console.log('computed filePath:', filePath);
+
+      const image_path_value =
+        ((uploadData as any)?.path || (uploadData as any)?.Key || (uploadData as any)?.key) || filePath || `outfits/${fileName}`;
+
+      // Save outfit record
+      const { data: outfit, error: dbError } = await supabase
         .from("outfits")
         .insert([
           {
-            image_url: publicUrl,
-            image_path: uploadData.path,
+            image_url: data?.publicUrl,
+            image_path: image_path_value,
+            username: username.trim(),
             file_hash: fileHash,
           },
         ])
@@ -122,13 +119,14 @@ export default function RateMe() {
 
       if (dbError) throw dbError;
 
-      setImageUrl(publicUrl);
-      setOutfitId(outfitData.id);
-      resetRating();
+      setImageUrl(data.publicUrl);
+      setOutfitId(outfit.id);
       toast.success("Image uploaded successfully!");
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      toast.error("Failed to upload image");
+      resetRating();
+    } catch (error: any) {
+      console.error('Error uploading image:', error);
+      toast.error(error.message || "Error uploading image");
+      if (fileInputRef.current) fileInputRef.current.value = "";
     } finally {
       setUploading(false);
     }
@@ -178,6 +176,7 @@ export default function RateMe() {
   const handleReset = () => {
     setImageUrl("");
     setOutfitId("");
+    setUsername("");
     resetRating();
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -200,13 +199,15 @@ export default function RateMe() {
               alt="RateMe Logo"
               className="h-12 sm:h-16 w-auto object-contain"
             />
-            <div className="text-right flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
+  <TypingInput/>
+
+<div className="text-right flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
               <Link
                 to="/gallery"
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all duration-200 text-sm sm:text-base"
+                className="flex items-center gap-0 pl-1 px-4 py-3 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all duration-200 text-sm sm:text-base"
               >
-                <Grid className="w-4 h-4" />
-                <span>Gallery</span>
+                <Grid className="w-12 h-4" />
+                <span className="whitespace-nowrap">Gallery</span>
               </Link>
               <div>
                 <div className="text-2xl sm:text-3xl font-bold text-transparent bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text">
@@ -222,8 +223,8 @@ export default function RateMe() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+      <main className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-12">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
           {/* Left Column - Upload and Rating */}
           <div className="lg:col-span-2 space-y-6">
             {/* Image Upload Section */}
@@ -333,24 +334,50 @@ export default function RateMe() {
                     </div>
                   </div>
                 ) : (
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    className="cursor-pointer"
-                  >
-                    <div className="flex flex-col items-center justify-center py-12 sm:py-16">
-                      <div className="relative mb-6">
-                        <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full blur-xl opacity-30"></div>
-                        <div className="relative w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-                          <Upload className="w-10 h-10 text-white" />
+                  <div className="space-y-6">
+                    {/* Username input */}
+                    <div className="space-y-2">
+                      <label className="block text-white font-semibold text-sm">
+                        Your username <span className="text-pink-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        placeholder="Enter your username"
+                        className="w-full bg-slate-800/50 border border-purple-500/20 rounded-lg px-4 py-3 text-white placeholder-purple-300/40 focus:outline-none focus:border-purple-500/60 focus:ring-2 focus:ring-purple-500/20 transition-all duration-200"
+                        maxLength={50}
+                        required
+                      />
+                    </div>
+
+                    {/* Upload area */}
+                    <div
+                      onClick={() => {
+                        if (!username.trim()) {
+                          toast.error("Please enter your username first");
+                          return;
+                        }
+                        fileInputRef.current?.click();
+                      }}
+                      className={`cursor-pointer ${!username.trim() ? 'opacity-50' : ''}`}
+                    >
+                      <div className="flex flex-col items-center justify-center py-12 sm:py-16">
+                        <div className="relative mb-6">
+                          <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full blur-xl opacity-30"></div>
+                          <div className="relative w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                            <Upload className="w-10 h-10 text-white" />
+                          </div>
                         </div>
+                        <h3 className="text-xl sm:text-2xl font-bold text-white mb-2 text-center">
+                          Upload an outfit
+                        </h3>
+                        <p className="text-purple-300/60 text-center text-sm sm:text-base max-w-sm">
+                          {username.trim() 
+                            ? "Click to select an image or drag and drop your outfit photo"
+                            : "Enter your username above to upload an outfit"}
+                        </p>
                       </div>
-                      <h3 className="text-xl sm:text-2xl font-bold text-white mb-2 text-center">
-                        Upload an outfit
-                      </h3>
-                      <p className="text-purple-300/60 text-center text-sm sm:text-base max-w-sm">
-                        Click to select an image or drag and drop your outfit
-                        photo
-                      </p>
                     </div>
                   </div>
                 )}
@@ -358,9 +385,15 @@ export default function RateMe() {
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
-                  onChange={handleImageUpload}
+                  onChange={(e) => {
+                    if (!username.trim()) {
+                      toast.error("Please enter your username first");
+                      return;
+                    }
+                    handleImageUpload(e);
+                  }}
                   className="hidden"
-                  disabled={uploading || submitting}
+                  disabled={uploading || submitting || !username.trim()}
                 />
               </div>
             </div>

@@ -67,6 +67,16 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       keyframes: {
+        
+        typing: {
+          '0%': { width: '0ch' },
+          '100%': { width: '60ch' } // adjust to text length
+        },
+        blink: {
+          '0%, 100%': { borderColor: 'transparent' },
+          '50%': { borderColor: 'currentColor' }
+        },
+
         "accordion-down": {
           from: {
             height: "0",
@@ -87,6 +97,8 @@ export default {
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        blink: "blink .7s step-end infinite",
+
       },
     },
   },
