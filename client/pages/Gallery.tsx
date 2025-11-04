@@ -3,19 +3,14 @@ import { Star, Loader2, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
-
-interface OutfitWithRating {
-  id: string;
-  image_url: string;
-  created_at: string;
-  file_hash: string | null;
-  averageRating: number;
-  totalRatings: number;
-}
+import { RatingDialog } from "@/components/ui/rating-dialog";
+import { Outfit, Rating, OutfitWithRating } from "@shared/types";
 
 export default function Gallery() {
   const [outfits, setOutfits] = useState<OutfitWithRating[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedOutfit, setSelectedOutfit] = useState<OutfitWithRating | null>(null);
+  const [ratingDialogOpen, setRatingDialogOpen] = useState(false);
 
   useEffect(() => {
     loadOutfitsWithRatings();
@@ -24,16 +19,30 @@ export default function Gallery() {
   const loadOutfitsWithRatings = async () => {
     try {
       setLoading(true);
+      console.log('Loading outfits...');
 
       // Get all outfits
       const { data: outfitsData, error: outfitsError } = await supabase
         .from("outfits")
-        .select("*")
+        .select(`
+          id,
+          created_at,
+          image_url,
+          image_path,
+          file_hash,
+          username
+        `)
         .order("created_at", { ascending: false });
+
+      console.log('Outfits response:', { outfitsData, outfitsError });
 
       if (outfitsError) throw outfitsError;
 
-      if (!outfitsData || outfitsData.length === 0) {
+      if (!outfitsData) {
+        throw new Error('No outfits data returned from Supabase');
+      }
+      
+      if (outfitsData.length === 0) {
         setOutfits([]);
         setLoading(false);
         return;
@@ -42,18 +51,32 @@ export default function Gallery() {
       // Get all ratings
       const { data: ratingsData, error: ratingsError } = await supabase
         .from("ratings")
-        .select("outfit_id, score");
+        .select(`
+          id,
+          created_at,
+          outfit_id,
+          score,
+          feedback,
+          username
+        `);
 
       if (ratingsError) throw ratingsError;
+
+      console.log('Ratings response:', { ratingsData, ratingsError });
 
       // Calculate average rating for each outfit
       const outfitMap = new Map<
         string,
-        { count: number; sum: number; outfit: (typeof outfitsData)[0] }
+        { 
+          count: number; 
+          sum: number; 
+          outfit: (typeof outfitsData)[0];
+          ratings: Rating[];
+        }
       >();
 
       outfitsData.forEach((outfit) => {
-        outfitMap.set(outfit.id, { count: 0, sum: 0, outfit });
+        outfitMap.set(outfit.id, { count: 0, sum: 0, outfit, ratings: [] });
       });
 
       ratingsData?.forEach((rating) => {
@@ -61,23 +84,49 @@ export default function Gallery() {
         if (entry) {
           entry.count += 1;
           entry.sum += rating.score;
+          // Ensure the username is preserved when adding to ratings array
+          entry.ratings.push({
+            ...rating,
+            username: rating.username || "Anonymous" // Explicitly handle the username
+          });
         }
       });
 
       // Convert to array with calculated averages and sort by rating
-      const outfitsWithRatings: OutfitWithRating[] = Array.from(
-        outfitMap.values(),
-      )
-        .map(({ outfit, count, sum }) => ({
-          id: outfit.id,
-          image_url: outfit.image_url,
-          created_at: outfit.created_at,
-          file_hash: outfit.file_hash,
-          averageRating: count > 0 ? sum / count : 0,
-          totalRatings: count,
-        }))
-        .filter((outfit) => outfit.totalRatings > 0) // Only show outfits with ratings
-        .sort((a, b) => b.averageRating - a.averageRating) // Sort by rating descending
+      // Convert all outfits to OutfitWithRating format, including those without ratings
+      const outfitsWithRatings: OutfitWithRating[] = outfitsData.map(outfit => {
+        const entry = outfitMap.get(outfit.id);
+        if (!entry) {
+          // This should never happen but handle it just in case
+          return {
+            ...outfit,
+            averageRating: 0,
+            totalRatings: 0,
+            latestRatings: []
+          };
+        }
+        return {
+          ...outfit,
+          username: outfit.username || 'Anonymous', // Provide a fallback for older entries
+          averageRating: entry.count > 0 ? entry.sum / entry.count : 0,
+          totalRatings: entry.count,
+          latestRatings: entry.ratings
+            .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
+            .slice(0, 3)
+        };
+      })
+        // Sort by rating first, then by newest first for equal ratings
+        .sort((a, b) => {
+          if (a.totalRatings === 0 && b.totalRatings === 0) {
+            // If neither has ratings, sort by newest first
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          }
+          if (a.totalRatings === 0) return 1; // Push unrated to end
+          if (b.totalRatings === 0) return -1; // Push unrated to end
+          const ratingDiff = b.averageRating - a.averageRating;
+          return ratingDiff !== 0 ? ratingDiff : 
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        })
         .filter((outfit, index, self) => {
           // Remove duplicates: compare by file_hash (actual photo content)
           // If file_hash is null, fall back to image_url comparison
@@ -94,7 +143,11 @@ export default function Gallery() {
       setOutfits(outfitsWithRatings);
     } catch (error) {
       console.error("Error loading outfits:", error);
-      toast.error("Failed to load outfits");
+      if (error instanceof Error) {
+        toast.error(`Failed to load outfits: ${error.message}`);
+      } else {
+        toast.error("Failed to load outfits");
+      }
     } finally {
       setLoading(false);
     }
@@ -135,7 +188,7 @@ export default function Gallery() {
           <div className="text-center py-24">
             <Star className="w-16 h-16 text-purple-500/30 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-white mb-2">
-              No rated outfits yet
+              No outfits yet
             </h2>
             <p className="text-purple-300/60 mb-6">
               Go to the
@@ -143,28 +196,34 @@ export default function Gallery() {
                 to="/"
                 className="text-purple-400 hover:text-purple-300 mx-1 underline"
               >
-                rating page
+                upload page
               </Link>
-              to start rating outfits!
+              to add your first outfit!
             </p>
           </div>
         ) : (
           <div>
             <p className="text-purple-300/70 mb-6 text-sm">
-              Showing {outfits.length} rated outfit
-              {outfits.length !== 1 ? "s" : ""}
+              Showing {outfits.length} outfit{outfits.length !== 1 ? "s" : ""}{" "}
+              {outfits.some(o => o.totalRatings > 0) 
+                ? `(${outfits.filter(o => o.totalRatings > 0).length} with ratings)`
+                : "(No ratings yet)"}
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
               {outfits.map((outfit) => (
                 <div
                   key={outfit.id}
-                  className="group relative rounded-xl overflow-hidden bg-slate-900/60 backdrop-blur-xl border border-purple-500/20 hover:border-purple-500/40 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/20"
+                  onClick={() => {
+                    setSelectedOutfit(outfit);
+                    setRatingDialogOpen(true);
+                  }}
+                  className="group relative rounded-xl overflow-hidden bg-slate-900/60 backdrop-blur-xl border border-purple-500/20 hover:border-purple-500/40 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/20 cursor-pointer transform hover:-translate-y-1"
                 >
-                  <div className="relative aspect-square overflow-hidden bg-slate-800">
+                  <div className="relative aspect-square overflow-hidden bg-slate-800 flex items-center justify-center">
                     <img
                       src={outfit.image_url}
                       alt="Outfit"
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                      className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-300"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                   </div>
@@ -187,9 +246,12 @@ export default function Gallery() {
 
                     <div className="flex items-end justify-between">
                       <div>
-                        <p className="text-lg font-bold text-transparent bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text">
-                          {outfit.averageRating.toFixed(1)}
-                        </p>
+                        <div className="flex items-baseline gap-2">
+                          <p className="text-lg font-bold text-transparent bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text">
+                            {outfit.averageRating.toFixed(1)}
+                          </p>
+                          <span className="text-sm text-purple-300/80">by {outfit.username}</span>
+                        </div>
                         <p className="text-purple-300/60 text-xs">
                           {outfit.totalRatings} rating
                           {outfit.totalRatings !== 1 ? "s" : ""}
@@ -197,6 +259,34 @@ export default function Gallery() {
                       </div>
                       <Star className="w-4 h-4 text-pink-400 fill-pink-400" />
                     </div>
+
+                    {/* Recent Ratings */}
+                    {outfit.latestRatings.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-purple-500/20">
+                        <div className="space-y-2">
+                          {outfit.latestRatings.map((rating, idx) => (
+                            <div key={idx} className="flex items-start justify-between text-xs">
+                              <div className="flex-1">
+                                <p className="text-purple-200/90 font-medium">
+                                  {rating.username || "Anonymous"}
+                                </p>
+                                {rating.feedback && (
+                                  <p className="text-purple-300/60 text-xs line-clamp-1 mt-0.5">
+                                    {rating.feedback}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1 ml-2">
+                                <Star className="w-3 h-3 text-pink-400 fill-pink-400" />
+                                <span className="text-purple-200/90 font-medium">
+                                  {rating.score}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -204,6 +294,14 @@ export default function Gallery() {
           </div>
         )}
       </main>
+
+      {/* Rating Dialog */}
+      <RatingDialog
+        outfit={selectedOutfit}
+        open={ratingDialogOpen}
+        onOpenChange={setRatingDialogOpen}
+        onRatingSubmitted={loadOutfitsWithRatings}
+      />
 
       {/* Footer */}
       <footer className="border-t border-purple-500/20 backdrop-blur-xl bg-slate-950/50 mt-12 sm:mt-16">
