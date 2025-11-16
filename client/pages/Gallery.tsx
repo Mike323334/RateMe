@@ -48,7 +48,7 @@ export default function Gallery() {
         return;
       }
 
-      // Get all ratings
+      // Get all ratings (include tags)
       const { data: ratingsData, error: ratingsError } = await supabase
         .from("ratings")
         .select(`
@@ -57,7 +57,8 @@ export default function Gallery() {
           outfit_id,
           score,
           feedback,
-          username
+          username,
+          tags
         `);
 
       if (ratingsError) throw ratingsError;
@@ -92,40 +93,38 @@ export default function Gallery() {
         }
       });
 
-      // Convert to array with calculated averages and sort by rating
-      // Convert all outfits to OutfitWithRating format, including those without ratings
-      const outfitsWithRatings: OutfitWithRating[] = outfitsData.map(outfit => {
-        const entry = outfitMap.get(outfit.id);
-        if (!entry) {
-          // This should never happen but handle it just in case
+      // Convert to array with calculated averages and score (1-100), then sort by score100 desc
+      const outfitsWithRatings: OutfitWithRating[] = outfitsData
+        .map((outfit) => {
+          const entry = outfitMap.get(outfit.id);
+          if (!entry) {
+            return {
+              ...outfit,
+              averageRating: 0,
+              totalRatings: 0,
+              latestRatings: [],
+              score100: 0,
+            };
+          }
+
+          const avg = entry.count > 0 ? entry.sum / entry.count : 0;
+          const score100 = Math.round(avg * 10); // convert 1-10 scale to 1-100 (10-100), round to nearest
+
           return {
             ...outfit,
-            averageRating: 0,
-            totalRatings: 0,
-            latestRatings: []
+            username: outfit.username || "Anonymous",
+            averageRating: avg,
+            totalRatings: entry.count,
+            latestRatings: entry.ratings
+              .sort((a, b) => new Date(b.created_at || "").getTime() - new Date(a.created_at || "").getTime())
+              .slice(0, 3),
+            score100,
           };
-        }
-        return {
-          ...outfit,
-          username: outfit.username || 'Anonymous', // Provide a fallback for older entries
-          averageRating: entry.count > 0 ? entry.sum / entry.count : 0,
-          totalRatings: entry.count,
-          latestRatings: entry.ratings
-            .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
-            .slice(0, 3)
-        };
-      })
-        // Sort by rating first, then by newest first for equal ratings
+        })
+        // Sort by score100 (desc), then newest created_at as tiebreaker
         .sort((a, b) => {
-          if (a.totalRatings === 0 && b.totalRatings === 0) {
-            // If neither has ratings, sort by newest first
-            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-          }
-          if (a.totalRatings === 0) return 1; // Push unrated to end
-          if (b.totalRatings === 0) return -1; // Push unrated to end
-          const ratingDiff = b.averageRating - a.averageRating;
-          return ratingDiff !== 0 ? ratingDiff : 
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          if ((b.score100 || 0) !== (a.score100 || 0)) return (b.score100 || 0) - (a.score100 || 0);
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
         })
         .filter((outfit, index, self) => {
           // Remove duplicates: compare by file_hash (actual photo content)
@@ -210,16 +209,44 @@ export default function Gallery() {
                 : "(No ratings yet)"}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-              {outfits.map((outfit) => (
+              {outfits.map((outfit, idx) => (
                 <div
                   key={outfit.id}
                   onClick={() => {
                     setSelectedOutfit(outfit);
                     setRatingDialogOpen(true);
                   }}
-                  className="group relative rounded-xl overflow-hidden bg-slate-900/60 backdrop-blur-xl border border-purple-500/20 hover:border-purple-500/40 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/20 cursor-pointer transform hover:-translate-y-1"
+                  className={`group relative rounded-xl overflow-hidden transition-all duration-300 transform hover:-translate-y-1 cursor-pointer backdrop-blur-xl ${
+                    idx === 0
+                      ? "bg-slate-900/80 border-2 border-yellow-400/60 shadow-lg shadow-yellow-400/30 hover:shadow-xl hover:shadow-yellow-400/40"
+                      : idx === 1
+                      ? "bg-slate-900/75 border-2 border-gray-300/50 shadow-lg shadow-gray-300/20 hover:shadow-xl hover:shadow-gray-300/30"
+                      : idx === 2
+                      ? "bg-slate-900/70 border-2 border-orange-400/50 shadow-lg shadow-orange-400/20 hover:shadow-xl hover:shadow-orange-400/30"
+                      : "bg-slate-900/60 border border-purple-500/20 hover:border-purple-500/40 hover:shadow-lg hover:shadow-purple-500/20"
+                  }`}
                 >
                   <div className="relative aspect-square overflow-hidden bg-slate-800 flex items-center justify-center">
+                    {/* Rank badge (left) */}
+                    <div className="absolute left-3 top-3 z-20">
+                      <div className={`inline-flex items-center justify-center px-2 py-1 rounded-full text-white text-xs font-bold shadow-md ${
+                        idx === 0
+                          ? "bg-gradient-to-r from-yellow-500 to-yellow-600"
+                          : idx === 1
+                          ? "bg-gradient-to-r from-gray-300 to-gray-400 text-slate-800"
+                          : idx === 2
+                          ? "bg-gradient-to-r from-orange-400 to-orange-600"
+                          : "bg-gradient-to-r from-purple-600 to-pink-500"
+                      }`}>
+                        {idx === 0 ? "🥇 #1" : idx === 1 ? "🥈 #2" : idx === 2 ? "🥉 #3" : `#${idx + 1}`}
+                      </div>
+                    </div>
+                    {/* Average rating pill (right) */}
+                    <div className="absolute right-3 top-3 z-20">
+                      <div className="inline-flex items-center justify-center px-2 py-1 rounded-full bg-black/60 text-white text-xs font-medium shadow-sm">
+                        {outfit.averageRating.toFixed(1)}/10
+                      </div>
+                    </div>
                     <img
                       src={outfit.image_url}
                       alt="Outfit"
@@ -270,11 +297,18 @@ export default function Gallery() {
                                 <p className="text-purple-200/90 font-medium">
                                   {rating.username || "Anonymous"}
                                 </p>
-                                {rating.feedback && (
-                                  <p className="text-purple-300/60 text-xs line-clamp-1 mt-0.5">
-                                    {rating.feedback}
-                                  </p>
-                                )}
+                                      {rating.feedback && (
+                                        <p className="text-purple-300/60 text-xs line-clamp-1 mt-0.5">
+                                          {rating.feedback}
+                                        </p>
+                                      )}
+                                      {rating.tags && rating.tags.length > 0 && (
+                                        <div className="mt-1 flex flex-wrap gap-1">
+                                          {rating.tags.map((t, i) => (
+                                            <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-slate-700/60 text-purple-200">{t}</span>
+                                          ))}
+                                        </div>
+                                      )}
                               </div>
                               <div className="flex items-center gap-1 ml-2">
                                 <Star className="w-3 h-3 text-pink-400 fill-pink-400" />

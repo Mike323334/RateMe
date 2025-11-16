@@ -23,6 +23,41 @@ export function RatingDialog({
   const [hoverRating, setHoverRating] = useState(0);
   const [feedback, setFeedback] = useState("");
   const [username, setUsername] = useState(() => localStorage.getItem("rateMe.username") || "");
+  const [availableTags] = useState<string[]>([
+    "Casual",
+    "Streetwear",
+    "Formal",
+    "Semi-formal",
+    "Business Casual",
+    "Sporty",
+    "Athleisure",
+    "Vintage",
+    "Retro",
+    "Y2K",
+    "Minimalist",
+    "Aesthetic",
+    "Chic",
+    "Boho / Bohemian",
+    "Preppy",
+    "Edgy",
+    "Grunge",
+    "Elegant",
+    "Luxury",
+    "High Fashion / Haute Couture",
+    // Vibe / Trend Tags
+    "Clean Fit",
+    "Old Money",
+    "Techwear",
+    "Soft Girl",
+    "E-boy / E-girl",
+    "Baddie",
+    "Academia",
+    "Dark Academia",
+    "Light Academia",
+    "K-fashion",
+    "Street Goth",
+  ]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmitRating = async () => {
@@ -50,14 +85,18 @@ export function RatingDialog({
         return;
       }
 
-      const { error } = await supabase.from("ratings").insert([
-        {
-          outfit_id: outfit.id,
-          score: rating,
-          feedback: sanitizedFeedback,
-          username: sanitizedUsername || "Anonymous",
-        },
-      ]);
+      const payload: any = {
+        outfit_id: outfit.id,
+        score: rating,
+        feedback: sanitizedFeedback,
+        username: sanitizedUsername || "Anonymous",
+      };
+
+      if (selectedTags && selectedTags.length > 0) {
+        payload.tags = selectedTags.map((t) => sanitizeInput(t));
+      }
+
+      const { error } = await supabase.from("ratings").insert([payload]);
 
       if (error) throw error;
 
@@ -79,6 +118,7 @@ export function RatingDialog({
   const handleClose = () => {
     setRating(0);
     setFeedback("");
+    setSelectedTags([]);
     onOpenChange(false);
   };
 
@@ -154,6 +194,45 @@ export function RatingDialog({
               className="w-full bg-slate-800/50 border border-purple-500/20 rounded-lg px-4 py-3 text-white placeholder-purple-300/40 focus:outline-none focus:border-purple-500/60 focus:ring-2 focus:ring-purple-500/20 transition-all duration-200 disabled:opacity-50"
               maxLength={50}
             />
+          </div>
+
+          {/* Tags Section */}
+          <div className="space-y-2">
+            <label className="block text-white font-semibold text-sm">
+              Select tags (click to add, click again to remove). Order is preserved by selection time.
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {availableTags.map((tag) => {
+                const selected = selectedTags.includes(tag);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => {
+                      if (selected) {
+                        setSelectedTags(selectedTags.filter((t) => t !== tag));
+                      } else {
+                        setSelectedTags([...selectedTags, tag]);
+                      }
+                    }}
+                    className={`px-2 py-1 text-xs rounded-md transition-all duration-150 ${selected ? 'bg-purple-600 text-white' : 'bg-slate-800/50 text-purple-300 border border-purple-500/20 hover:bg-slate-800/70'}`}
+                    disabled={submitting}
+                  >
+                    {tag}
+                  </button>
+                );
+              })}
+            </div>
+
+            {selectedTags.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {selectedTags.map((t, i) => (
+                  <span key={t} className="inline-flex items-center gap-2 px-2 py-1 rounded-full bg-gradient-to-r from-purple-600 to-pink-500 text-white text-xs font-medium">
+                    <span className="font-bold">{i + 1}.</span> {t}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Feedback Section */}
