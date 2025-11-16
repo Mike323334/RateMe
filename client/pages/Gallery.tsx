@@ -171,7 +171,6 @@ export default function Gallery() {
               </h1>
               <p className="text-sm text-gray-400 tracking-widest mt-3">
                 RANKED BY COMMUNITY RATINGS 
-                Drop your fit. Get rated fast. Discover what's trending now.
               </p><br/>
               <p className="text-sm text-gray-400 tracking-widest mt-3">
                 Drop your fit. Get rated fast. Discover what's trending now.

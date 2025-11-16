@@ -192,14 +192,18 @@ export default function RateMe() {
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Header */}
-      <header className="border-b border-gray-800 bg-black">
+      <header className="w-full bg-black 
+                   min-h-[130px] sm:min-h-[150px] md:min-h-[170px]
+                   flex items-center px-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 py-6 sm:py-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <h1 className="text-xl sm:text-2xl font-black tracking-tighter">RATEME</h1>
               <p className="text-xs sm:text-sm text-gray-400 tracking-widest">RATE OUTFITS</p>
             </div>
-  <TypingInput/>
+       <div className="w-full px-3 mt-2 relative min-h-[60px] hidden sm:block">
+          <TypingInput />  
+        </div>
 
 <div className="text-right flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
               <Link
