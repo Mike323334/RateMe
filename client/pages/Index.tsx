@@ -3,7 +3,8 @@ import { Star, Upload, RotateCcw, Loader2, Grid } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
-import TypingInput from "../components/ui/typingInput"; 
+import TypingInput from "../components/ui/typingInput";
+import { SocialShareButtons } from "@/components/ui/social-share-buttons"; 
 
 interface Rating {
   id: string;

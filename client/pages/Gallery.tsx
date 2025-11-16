@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { RatingDialog } from "@/components/ui/rating-dialog";
+import { SocialShareButtons } from "@/components/ui/social-share-buttons";
 import { Outfit, Rating, OutfitWithRating } from "@shared/types";
 
 export default function Gallery() {
@@ -273,7 +274,7 @@ export default function Gallery() {
                       </div>
                     </div>
 
-                    <div className="flex items-end justify-between">
+                    <div className="flex items-end justify-between mb-3">
                       <div>
                         <div className="flex items-baseline gap-2">
                           <p className="text-lg font-bold text-transparent bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text">
@@ -287,6 +288,11 @@ export default function Gallery() {
                         </p>
                       </div>
                       <Star className="w-4 h-4 text-pink-400 fill-pink-400" />
+                    </div>
+
+                    {/* Social Share Buttons */}
+                    <div className="border-t border-purple-500/20 pt-3">
+                      <SocialShareButtons outfit={outfit} />
                     </div>
 
                     {/* Recent Ratings */}
@@ -343,7 +349,7 @@ export default function Gallery() {
       <footer className="border-t border-gray-800 bg-black mt-16 sm:mt-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 py-12 sm:py-16 text-center">
           <p className="text-xs text-gray-500 tracking-widest">
-            RATEME © 2024 • RATE OUTFITS, GET HONEST FEEDBACK
+            RATEME © 2025 • RATE OUTFITS, GET HONEST FEEDBACK
           </p>
         </div>
       </footer>
