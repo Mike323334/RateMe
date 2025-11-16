@@ -153,23 +153,27 @@ export default function Gallery() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950">
+    <div className="min-h-screen bg-black text-white">
       {/* Header */}
-      <header className="border-b border-purple-500/20 backdrop-blur-xl bg-slate-950/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-          <div className="flex items-center gap-4">
+      <header className="border-b border-gray-800 bg-black">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 py-8 sm:py-12">
+          <div className="flex items-center gap-6">
             <Link
               to="/"
-              className="p-2 hover:bg-slate-800/50 rounded-lg transition-colors duration-200"
+              className="hover:text-gray-400 transition-colors duration-200 text-xl font-bold"
             >
-              <ArrowLeft className="w-6 h-6 text-purple-400" />
+              ←
             </Link>
             <div>
-              <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 bg-clip-text text-transparent">
-                Top Rated Outfits
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tighter">
+                TOP RATED OUTFITS
               </h1>
-              <p className="text-purple-300/70 text-sm sm:text-base mt-1">
-                Browse outfits sorted by best rating
+              <p className="text-sm text-gray-400 tracking-widest mt-3">
+                RANKED BY COMMUNITY RATINGS 
+                Drop your fit. Get rated fast. Discover what's trending now.
+              </p><br/>
+              <p className="text-sm text-gray-400 tracking-widest mt-3">
+                Drop your fit. Get rated fast. Discover what's trending now.
               </p>
             </div>
           </div>
@@ -177,36 +181,34 @@ export default function Gallery() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+      <main className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 py-12 sm:py-20">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-24">
-            <Loader2 className="w-12 h-12 text-purple-500/50 animate-spin mb-4" />
-            <p className="text-purple-300/50">Loading outfits...</p>
+          <div className="flex flex-col items-center justify-center py-32">
+            <Loader2 className="w-12 h-12 text-gray-500 animate-spin mb-6" />
+            <p className="text-gray-400 tracking-wide">LOADING OUTFITS...</p>
           </div>
         ) : outfits.length === 0 ? (
-          <div className="text-center py-24">
-            <Star className="w-16 h-16 text-purple-500/30 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-white mb-2">
-              No outfits yet
+          <div className="text-center py-32">
+            <h2 className="text-4xl font-black tracking-tighter mb-6">
+              NO OUTFITS YET
             </h2>
-            <p className="text-purple-300/60 mb-6">
-              Go to the
+            <p className="text-gray-400 mb-8 tracking-wide">
+              GO TO THE
               <Link
                 to="/"
-                className="text-purple-400 hover:text-purple-300 mx-1 underline"
+                className="text-white font-bold mx-2 underline hover:no-underline"
               >
-                upload page
+                UPLOAD PAGE
               </Link>
-              to add your first outfit!
+              TO ADD YOUR FIRST OUTFIT
             </p>
           </div>
         ) : (
           <div>
-            <p className="text-purple-300/70 mb-6 text-sm">
-              Showing {outfits.length} outfit{outfits.length !== 1 ? "s" : ""}{" "}
-              {outfits.some(o => o.totalRatings > 0) 
-                ? `(${outfits.filter(o => o.totalRatings > 0).length} with ratings)`
-                : "(No ratings yet)"}
+            <p className="text-sm text-gray-400 tracking-widest mb-12">
+              {outfits.length} OUTFIT{outfits.length !== 1 ? "S" : ""} {outfits.some(o => o.totalRatings > 0) 
+                ? `• ${outfits.filter(o => o.totalRatings > 0).length} WITH RATINGS`
+                : "• NO RATINGS YET"}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
               {outfits.map((outfit, idx) => (
@@ -338,10 +340,10 @@ export default function Gallery() {
       />
 
       {/* Footer */}
-      <footer className="border-t border-purple-500/20 backdrop-blur-xl bg-slate-950/50 mt-12 sm:mt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 text-center">
-          <p className="text-purple-300/60 text-sm">
-            RateMe © 2024 • Rate outfits, get honest feedback
+      <footer className="border-t border-gray-800 bg-black mt-16 sm:mt-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 py-12 sm:py-16 text-center">
+          <p className="text-xs text-gray-500 tracking-widest">
+            RATEME © 2024 • RATE OUTFITS, GET HONEST FEEDBACK
           </p>
         </div>
       </footer>

@@ -189,32 +189,31 @@ export default function RateMe() {
       : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950">
+    <div className="min-h-screen bg-black text-white">
       {/* Header */}
-      <header className="border-b border-purple-500/20 backdrop-blur-xl bg-slate-950/50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+      <header className="border-b border-gray-800 bg-black">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 py-6 sm:py-8">
           <div className="flex items-center justify-between">
-            <img
-              src="https://cdn.builder.io/api/v1/image/assets%2F173ddb847d934f03b005a5ed9efda2f1%2Fc930586ccf9d4ea2a4f1fc52ac40b603?format=webp&width=800"
-              alt="RateMe Logo"
-              className="h-12 sm:h-16 w-auto object-contain"
-            />
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tighter">RATEME</h1>
+              <p className="text-xs sm:text-sm text-gray-400 tracking-widest">RATE OUTFITS</p>
+            </div>
   <TypingInput/>
 
-<div className="text-right flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
+<div className="text-right flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
               <Link
                 to="/gallery"
-                className="flex items-center gap-0 pl-1 px-4 py-3 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all duration-200 text-sm sm:text-base"
+                className="flex items-center gap-2 px-6 py-2 border border-white text-white font-medium hover:bg-white hover:text-black transition-all duration-300 text-sm sm:text-base tracking-wide"
               >
-                <Grid className="w-12 h-4" />
-                <span className="whitespace-nowrap">Gallery</span>
+                <Grid className="w-4 h-4" />
+                <span className="whitespace-nowrap">VIEW GALLERY</span>
               </Link>
-              <div>
-                <div className="text-2xl sm:text-3xl font-bold text-transparent bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text">
+              <div className="border-l border-gray-700 pl-6">
+                <div className="text-3xl sm:text-4xl font-black tracking-tighter">
                   {averageRating}
                 </div>
-                <p className="text-purple-300/60 text-xs sm:text-sm">
-                  Avg Rating ({ratings.length})
+                <p className="text-xs text-gray-400 tracking-widest mt-1">
+                  AVG RATING
                 </p>
               </div>
             </div>
@@ -223,14 +222,25 @@ export default function RateMe() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
+      <main className="max-w-7xl mx-auto px-3 sm:px-8 lg:px-12 py-12 sm:py-20">
+        {/* Hero Section */}
+        <div className="mb-16 sm:mb-24">
+          <h2 className="text-5xl sm:text-7xl lg:text-8xl font-black tracking-tighter leading-tight mb-6">
+            RATE YOUR
+            <br />
+            STYLE
+          </h2>
+          <p className="text-sm sm:text-base text-gray-400 tracking-widest max-w-2xl">
+            UPLOAD OUTFITS AND GET HONEST FEEDBACK FROM THE COMMUNITY. DISCOVER WHAT WORKS.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
           {/* Left Column - Upload and Rating */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-8">
             {/* Image Upload Section */}
             <div className="group relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              <div className="relative bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-purple-500/30 p-4 sm:p-6 transition-all duration-300">
+              <div className="relative bg-black border border-gray-800 p-8 sm:p-12 transition-all duration-300">
                 {imageUrl ? (
                   <div className="space-y-6">
                     <div className="relative rounded-xl overflow-hidden bg-slate-800 border border-purple-500/20">
@@ -362,21 +372,16 @@ export default function RateMe() {
                       }}
                       className={`cursor-pointer ${!username.trim() ? 'opacity-50' : ''}`}
                     >
-                      <div className="flex flex-col items-center justify-center py-12 sm:py-16">
-                        <div className="relative mb-6">
-                          <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full blur-xl opacity-30"></div>
-                          <div className="relative w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-                            <Upload className="w-10 h-10 text-white" />
-                          </div>
-                        </div>
-                        <h3 className="text-xl sm:text-2xl font-bold text-white mb-2 text-center">
-                          Upload an outfit
+                      <div className="flex flex-col items-center justify-center py-20 sm:py-32 text-center">
+                        <h3 className="text-2xl sm:text-4xl font-black tracking-tighter mb-4">
+                          UPLOAD OUTFIT
                         </h3>
-                        <p className="text-purple-300/60 text-center text-sm sm:text-base max-w-sm">
+                        <p className="text-sm sm:text-base text-gray-400 tracking-wide max-w-md mb-8">
                           {username.trim() 
-                            ? "Click to select an image or drag and drop your outfit photo"
-                            : "Enter your username above to upload an outfit"}
+                            ? "CLICK TO UPLOAD YOUR OUTFIT PHOTO"
+                            : "ENTER YOUR USERNAME TO GET STARTED"}
                         </p>
+                        <div className="w-12 h-12 border-2 border-white"></div>
                       </div>
                     </div>
                   </div>
@@ -400,10 +405,13 @@ export default function RateMe() {
           </div>
 
           {/* Right Column - Ratings History */}
-          <div className="space-y-4">
-            <h2 className="text-xl sm:text-2xl font-bold text-white px-4 sm:px-0">
-              Recent Ratings
-            </h2>
+          <div className="space-y-8">
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tighter mb-2">
+                RECENT RATINGS
+              </h2>
+              <div className="w-12 h-1 bg-white"></div>
+            </div>
             <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
               {loading ? (
                 <div className="text-center py-12 px-4">
