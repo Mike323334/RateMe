@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import TypingInput from "../components/ui/typingInput";
 import { SocialShareButtons } from "@/components/ui/social-share-buttons"; 
+import { generateWatermarkedImage } from "@/lib/share-utils";
 
 interface Rating {
   id: string;
@@ -66,8 +67,51 @@ export default function RateMe() {
     return hashHex;
   };
 
+  const resizeImageToInstagram = (file: File): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    const url = URL.createObjectURL(file);
+
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1080;
+      canvas.height = 1350;
+      const ctx = canvas.getContext("2d");
+
+      const imgRatio = img.width / img.height;
+      const canvasRatio = canvas.width / canvas.height;
+      let drawWidth, drawHeight, drawX, drawY;
+      if (imgRatio > canvasRatio) {
+        drawHeight = canvas.height;
+        drawWidth = imgRatio * canvas.height;
+        drawX = (canvas.width - drawWidth) / 2;
+        drawY = 0;
+      } else {
+        drawWidth = canvas.width;
+        drawHeight = canvas.width / imgRatio;
+        drawX = 0;
+        drawY = (canvas.height - drawHeight) / 2;
+      }
+      ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error("Canvas toBlob failed"));
+      }, "image/jpeg", 0.95);
+
+      URL.revokeObjectURL(url);
+    };
+
+    img.onerror = () => reject(new Error("Image load error"));
+    img.src = url;
+  });
+};
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+
+
     if (!file) return;
 
     if (!username.trim()) {
@@ -78,14 +122,16 @@ export default function RateMe() {
     setUploading(true);
     try {
       const fileHash = await calculateFileHash(file);
+    const resizedBlob = await resizeImageToInstagram(file);
 
       const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
       const filePath = `outfits/${fileName}`;
+      
 
       // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("outfit-images")
-        .upload(filePath, file);
+        .upload(filePath, resizedBlob);
 
       if (uploadError) {
         throw uploadError;
@@ -207,7 +253,7 @@ export default function RateMe() {
 
 <div className="text-right flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
               <Link
-                to="/gallery"
+                to="/"
                 className="flex items-center gap-2 px-6 py-2 border border-white text-white font-medium hover:bg-white hover:text-black transition-all duration-300 text-sm sm:text-base tracking-wide"
               >
                 <Grid className="w-4 h-4" />

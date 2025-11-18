@@ -160,19 +160,21 @@ export default function Gallery() {
         <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 py-8 sm:py-12">
           <div className="flex items-center gap-6">
             <Link
-              to="/"
+              to="/gallery"
               className="hover:text-gray-400 transition-colors duration-200 text-xl font-bold"
             >
-              ←
+              <h1 className="mr-11 text-2xl sm:text-3xl lg:text-4xl font-black tracking-tighter">
+                ← UPLOAD HERE
+              </h1>
             </Link>
             <div>
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tighter">
+              <h1 className="ml-11 text-2xl sm:text-3xl lg:text-4xl font-black tracking-tighter">
                 TOP RATED OUTFITS
               </h1>
-              <p className="text-sm text-gray-400 tracking-widest mt-3">
+              <p className="ml-11 text-sm text-gray-400 tracking-widest mt-3">
                 RANKED BY COMMUNITY RATINGS 
               </p><br/>
-              <p className="text-sm text-gray-400 tracking-widest mt-3">
+              <p className="ml-11 text-sm text-gray-400 tracking-widest mt-3">
                 Drop your fit. Get rated fast. Discover what's trending now.
               </p>
             </div>

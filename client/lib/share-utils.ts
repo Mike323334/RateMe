@@ -22,54 +22,68 @@ export async function generateWatermarkedImage(
     const img = new Image();
     img.crossOrigin = 'anonymous';
 
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
+              img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              reject(new Error('Failed to get canvas context'));
+              return;
+            }
+            canvas.width = 1080;
+            canvas.height = 1350;
 
-      if (!ctx) {
-        reject(new Error('Failed to get canvas context'));
-        return;
-      }
+            // Always cover the canvas with the image: "cover" mode
+            const imgRatio = img.width / img.height;
+            const canvasRatio = canvas.width / canvas.height;
+            let drawWidth, drawHeight, drawX, drawY;
+            if (imgRatio > canvasRatio) {
+              // Image is wider: fit height, crop sides
+              drawHeight = canvas.height;
+              drawWidth = imgRatio * canvas.height;
+              drawX = (canvas.width - drawWidth) / 2;
+              drawY = 0;
+            } else {
+              // Image is taller: fit width, crop top/bottom
+              drawWidth = canvas.width;
+              drawHeight = canvas.width / imgRatio;
+              drawX = 0;
+              drawY = (canvas.height - drawHeight) / 2;
+            }
 
-      // Set canvas size to match image
-      canvas.width = img.width;
-      canvas.height = img.height;
+            // Draw photo to fill entire canvas, cropping as necessary
+            ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
 
-      // Draw the original image
-      ctx.drawImage(img, 0, 0);
+            // Overlay + watermark at bottom of image
+            const overlayHeight = Math.round(canvas.height * 0.08);
 
-      // Add semi-transparent overlay at the bottom
-      const overlayHeight = canvas.height * 0.15;
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-      ctx.fillRect(0, canvas.height - overlayHeight, canvas.width, overlayHeight);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            ctx.fillRect(0, canvas.height - overlayHeight, canvas.width, overlayHeight);
 
-      // Draw "Rate me" text
-      ctx.font = `bold ${canvas.width * 0.08}px Arial`;
-      ctx.fillStyle = '#FFFFFF';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
+            ctx.font = `bold ${canvas.width * 0.05}px Arial`;
+            ctx.fillStyle = '#FFFFFF';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('RATE ME', canvas.width / 2, canvas.height - overlayHeight * 0.5);
 
-      const text = 'RATE ME';
-      ctx.fillText(text, canvas.width / 2, canvas.height - overlayHeight / 2 - canvas.height * 0.03);
+            ctx.font = `${canvas.width * 0.025}px Arial`;
+            ctx.fillStyle = '#E5E7EB';
+            ctx.fillText(
+              'https://ratemyoutfitnow.netlify.app/',
+              canvas.width / 2,
+              canvas.height - overlayHeight * 0.15
+            );
 
-      // Draw website URL
-      ctx.font = `${canvas.width * 0.04}px Arial`;
-      ctx.fillStyle = '#E5E7EB';
-      ctx.fillText('rateme-site.com', canvas.width / 2, canvas.height - overlayHeight / 2 + canvas.height * 0.03);
+            canvas.toBlob((blob) => {
+              if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error('Failed to create blob from canvas'));
+            }
+          }, 'image/png', 0.95);
+        };
 
-      // Convert canvas to blob
-      canvas.toBlob(
-        (blob) => {
-          if (blob) {
-            resolve(blob);
-          } else {
-            reject(new Error('Failed to create blob from canvas'));
-          }
-        },
-        'image/png',
-        0.95
-      );
-    };
+
+
 
     img.onerror = () => {
       reject(new Error('Failed to load image'));
