@@ -1,356 +1,531 @@
-import { useState, useEffect } from "react";
-import { Star, Loader2, ArrowLeft } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Star, Upload, RotateCcw, Loader2, Grid } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
-import { RatingDialog } from "@/components/ui/rating-dialog";
-import { SocialShareButtons } from "@/components/ui/social-share-buttons";
-import { Outfit, Rating, OutfitWithRating } from "@shared/types";
+import TypingInput from "../components/ui/typingInput";
+import { SocialShareButtons } from "@/components/ui/social-share-buttons"; 
+import { generateWatermarkedImage } from "@/lib/share-utils";
 
-export default function Gallery() {
-  const [outfits, setOutfits] = useState<OutfitWithRating[]>([]);
+interface Rating {
+  id: string;
+  score: number;
+  feedback: string;
+  created_at: string;
+  outfit_id: string;
+}
+
+interface Outfit {
+  id: string;
+  image_url: string;
+  created_at: string;
+}
+
+export default function RateMe() {
+  const [imageUrl, setImageUrl] = useState<string>("");
+  const [outfitId, setOutfitId] = useState<string>("");
+  const [username, setUsername] = useState<string>("");
+  const [rating, setRating] = useState<number>(0);
+  const [hoverRating, setHoverRating] = useState<number>(0);
+  const [feedback, setFeedback] = useState<string>("");
+  const [ratings, setRatings] = useState<Rating[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [selectedOutfit, setSelectedOutfit] = useState<OutfitWithRating | null>(null);
-  const [ratingDialogOpen, setRatingDialogOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Load ratings on component mount
   useEffect(() => {
-    loadOutfitsWithRatings();
+    loadRatings();
   }, []);
 
-  const loadOutfitsWithRatings = async () => {
+  const loadRatings = async () => {
     try {
       setLoading(true);
-      console.log('Loading outfits...');
-
-      // Get all outfits
-      const { data: outfitsData, error: outfitsError } = await supabase
-        .from("outfits")
-        .select(`
-          id,
-          created_at,
-          image_url,
-          image_path,
-          file_hash,
-          username
-        `)
+      const { data, error } = await supabase
+        .from("ratings")
+        .select("*")
         .order("created_at", { ascending: false });
 
-      console.log('Outfits response:', { outfitsData, outfitsError });
-
-      if (outfitsError) throw outfitsError;
-
-      if (!outfitsData) {
-        throw new Error('No outfits data returned from Supabase');
-      }
-      
-      if (outfitsData.length === 0) {
-        setOutfits([]);
-        setLoading(false);
-        return;
-      }
-
-      // Get all ratings (include tags)
-      const { data: ratingsData, error: ratingsError } = await supabase
-        .from("ratings")
-        .select(`
-          id,
-          created_at,
-          outfit_id,
-          score,
-          feedback,
-          username,
-          tags
-        `);
-
-      if (ratingsError) throw ratingsError;
-
-      console.log('Ratings response:', { ratingsData, ratingsError });
-
-      // Calculate average rating for each outfit
-      const outfitMap = new Map<
-        string,
-        { 
-          count: number; 
-          sum: number; 
-          outfit: (typeof outfitsData)[0];
-          ratings: Rating[];
-        }
-      >();
-
-      outfitsData.forEach((outfit) => {
-        outfitMap.set(outfit.id, { count: 0, sum: 0, outfit, ratings: [] });
-      });
-
-      ratingsData?.forEach((rating) => {
-        const entry = outfitMap.get(rating.outfit_id);
-        if (entry) {
-          entry.count += 1;
-          entry.sum += rating.score;
-          // Ensure the username is preserved when adding to ratings array
-          entry.ratings.push({
-            ...rating,
-            username: rating.username || "Anonymous" // Explicitly handle the username
-          });
-        }
-      });
-
-      // Convert to array with calculated averages and score (1-100), then sort by score100 desc
-      const outfitsWithRatings: OutfitWithRating[] = outfitsData
-        .map((outfit) => {
-          const entry = outfitMap.get(outfit.id);
-          if (!entry) {
-            return {
-              ...outfit,
-              averageRating: 0,
-              totalRatings: 0,
-              latestRatings: [],
-              score100: 0,
-            };
-          }
-
-          const avg = entry.count > 0 ? entry.sum / entry.count : 0;
-          const score100 = Math.round(avg * 10); // convert 1-10 scale to 1-100 (10-100), round to nearest
-
-          return {
-            ...outfit,
-            username: outfit.username || "Anonymous",
-            averageRating: avg,
-            totalRatings: entry.count,
-            latestRatings: entry.ratings
-              .sort((a, b) => new Date(b.created_at || "").getTime() - new Date(a.created_at || "").getTime())
-              .slice(0, 3),
-            score100,
-          };
-        })
-        // Sort by score100 (desc), then newest created_at as tiebreaker
-        .sort((a, b) => {
-          if ((b.score100 || 0) !== (a.score100 || 0)) return (b.score100 || 0) - (a.score100 || 0);
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        })
-        .filter((outfit, index, self) => {
-          // Remove duplicates: compare by file_hash (actual photo content)
-          // If file_hash is null, fall back to image_url comparison
-          if (outfit.file_hash) {
-            return (
-              index === self.findIndex((o) => o.file_hash === outfit.file_hash)
-            );
-          }
-          return (
-            index === self.findIndex((o) => o.image_url === outfit.image_url)
-          );
-        });
-
-      setOutfits(outfitsWithRatings);
+      if (error) throw error;
+      setRatings(data || []);
     } catch (error) {
-      console.error("Error loading outfits:", error);
-      if (error instanceof Error) {
-        toast.error(`Failed to load outfits: ${error.message}`);
-      } else {
-        toast.error("Failed to load outfits");
-      }
+      console.error("Error loading ratings:", error);
+      toast.error("Failed to load ratings");
     } finally {
       setLoading(false);
     }
   };
 
+  const calculateFileHash = async (file: File): Promise<string> => {
+    const buffer = await file.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    return hashHex;
+  };
+
+  const resizeImageToInstagram = (file: File): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    const url = URL.createObjectURL(file);
+
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1080;
+      canvas.height = 1350;
+      const ctx = canvas.getContext("2d");
+
+      const imgRatio = img.width / img.height;
+      const canvasRatio = canvas.width / canvas.height;
+      let drawWidth, drawHeight, drawX, drawY;
+      if (imgRatio > canvasRatio) {
+        drawHeight = canvas.height;
+        drawWidth = imgRatio * canvas.height;
+        drawX = (canvas.width - drawWidth) / 2;
+        drawY = 0;
+      } else {
+        drawWidth = canvas.width;
+        drawHeight = canvas.width / imgRatio;
+        drawX = 0;
+        drawY = (canvas.height - drawHeight) / 2;
+      }
+      ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error("Canvas toBlob failed"));
+      }, "image/jpeg", 0.95);
+
+      URL.revokeObjectURL(url);
+    };
+
+    img.onerror = () => reject(new Error("Image load error"));
+    img.src = url;
+  });
+};
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+
+
+    if (!file) return;
+
+    if (!username.trim()) {
+      toast.error("Please enter your username first");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const fileHash = await calculateFileHash(file);
+    const resizedBlob = await resizeImageToInstagram(file);
+
+      const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
+      const filePath = `outfits/${fileName}`;
+      
+
+      // Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("outfit-images")
+        .upload(filePath, resizedBlob);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Get public URL
+      const { data } = await supabase.storage
+        .from("outfit-images")
+        .getPublicUrl(filePath);
+
+      // Defensive: determine image_path (some SDK versions return different shapes)
+      console.log('uploadData:', uploadData);
+      console.log('getPublicUrl data:', data);
+      console.log('computed filePath:', filePath);
+
+      const image_path_value =
+        ((uploadData as any)?.path || (uploadData as any)?.Key || (uploadData as any)?.key) || filePath || `outfits/${fileName}`;
+
+      // Save outfit record
+      const { data: outfit, error: dbError } = await supabase
+        .from("outfits")
+        .insert([
+          {
+            image_url: data?.publicUrl,
+            image_path: image_path_value,
+            username: username.trim(),
+            file_hash: fileHash,
+          },
+        ])
+        .select()
+        .single();
+
+      if (dbError) throw dbError;
+
+      setImageUrl(data.publicUrl);
+      setOutfitId(outfit.id);
+      toast.success("Image uploaded successfully!");
+      resetRating();
+    } catch (error: any) {
+      console.error('Error uploading image:', error);
+      toast.error(error.message || "Error uploading image");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSubmitRating = async () => {
+    if (rating === 0 || !outfitId) {
+      toast.error("Please select a rating");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const { data: newRating, error } = await supabase
+        .from("ratings")
+        .insert([
+          {
+            outfit_id: outfitId,
+            score: rating,
+            feedback: feedback,
+          },
+        ])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setRatings([newRating, ...ratings]);
+      setImageUrl("");
+      setOutfitId("");
+      resetRating();
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      toast.success("Rating submitted!");
+    } catch (error) {
+      console.error("Error submitting rating:", error);
+      toast.error("Failed to submit rating");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const resetRating = () => {
+    setRating(0);
+    setFeedback("");
+  };
+
+  const handleReset = () => {
+    setImageUrl("");
+    setOutfitId("");
+    setUsername("");
+    resetRating();
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const averageRating =
+    ratings.length > 0
+      ? (ratings.reduce((sum, r) => sum + r.score, 0) / ratings.length).toFixed(
+          1,
+        )
+      : 0;
+
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Header */}
-      <header className="border-b border-gray-800 bg-black">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 py-8 sm:py-12">
-          <div className="flex items-center gap-6">
-            <Link
-              to="/gallery"
-              className="hover:text-gray-400 transition-colors duration-200 text-xl font-bold"
-            >
-              <h1 className="mr-11 text-2xl sm:text-3xl lg:text-4xl font-black tracking-tighter">
-                ← UPLOAD HERE
-              </h1>
-            </Link>
-            <div>
-              <h1 className="ml-11 text-2xl sm:text-3xl lg:text-4xl font-black tracking-tighter">
-                TOP RATED OUTFITS
-              </h1>
-              <p className="ml-11 text-sm text-gray-400 tracking-widest mt-3">
-                RANKED BY COMMUNITY RATINGS 
-              </p><br/>
-              <p className="ml-11 text-sm text-gray-400 tracking-widest mt-3">
-                Drop your fit. Get rated fast. Discover what's trending now.
-              </p>
+      <header className="w-full bg-black 
+                   min-h-[130px] sm:min-h-[150px] md:min-h-[170px]
+                   flex items-center px-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 py-6 sm:py-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tighter">RATEME</h1>
+              <p className="text-xs sm:text-sm text-gray-400 tracking-widest">RATE OUTFITS</p>
+            </div>
+       <div className="w-full px-3 mt-2 relative min-h-[60px] hidden sm:block">
+          <TypingInput />  
+        </div>
+
+<div className="text-right flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
+              <Link
+                to="/"
+                className="flex items-center gap-2 px-6 py-2 border border-white text-white font-medium hover:bg-white hover:text-black transition-all duration-300 text-sm sm:text-base tracking-wide"
+              >
+                <Grid className="w-4 h-4" />
+                <span className="whitespace-nowrap">VIEW GALLERY</span>
+              </Link>
+              <div className="border-l border-gray-700 pl-6">
+                <div className="text-3xl sm:text-4xl font-black tracking-tighter">
+                  {averageRating}
+                </div>
+                <p className="text-xs text-gray-400 tracking-widest mt-1">
+                  AVG RATING
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 py-12 sm:py-20">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-32">
-            <Loader2 className="w-12 h-12 text-gray-500 animate-spin mb-6" />
-            <p className="text-gray-400 tracking-wide">LOADING OUTFITS...</p>
-          </div>
-        ) : outfits.length === 0 ? (
-          <div className="text-center py-32">
-            <h2 className="text-4xl font-black tracking-tighter mb-6">
-              NO OUTFITS YET
-            </h2>
-            <p className="text-gray-400 mb-8 tracking-wide">
-              GO TO THE
-              <Link
-                to="/"
-                className="text-white font-bold mx-2 underline hover:no-underline"
-              >
-                UPLOAD PAGE
-              </Link>
-              TO ADD YOUR FIRST OUTFIT
-            </p>
-          </div>
-        ) : (
-          <div>
-            <p className="text-sm text-gray-400 tracking-widest mb-12">
-              {outfits.length} OUTFIT{outfits.length !== 1 ? "S" : ""} {outfits.some(o => o.totalRatings > 0) 
-                ? `• ${outfits.filter(o => o.totalRatings > 0).length} WITH RATINGS`
-                : "• NO RATINGS YET"}
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-              {outfits.map((outfit, idx) => (
-                <div
-                  key={outfit.id}
-                  onClick={() => {
-                    setSelectedOutfit(outfit);
-                    setRatingDialogOpen(true);
-                  }}
-                  className={`group relative rounded-xl overflow-hidden transition-all duration-300 transform hover:-translate-y-1 cursor-pointer backdrop-blur-xl ${
-                    idx === 0
-                      ? "bg-slate-900/80 border-2 border-yellow-400/60 shadow-lg shadow-yellow-400/30 hover:shadow-xl hover:shadow-yellow-400/40"
-                      : idx === 1
-                      ? "bg-slate-900/75 border-2 border-gray-300/50 shadow-lg shadow-gray-300/20 hover:shadow-xl hover:shadow-gray-300/30"
-                      : idx === 2
-                      ? "bg-slate-900/70 border-2 border-orange-400/50 shadow-lg shadow-orange-400/20 hover:shadow-xl hover:shadow-orange-400/30"
-                      : "bg-slate-900/60 border border-purple-500/20 hover:border-purple-500/40 hover:shadow-lg hover:shadow-purple-500/20"
-                  }`}
-                >
-                  <div className="relative aspect-square overflow-hidden bg-slate-800 flex items-center justify-center">
-                    {/* Rank badge (left) */}
-                    <div className="absolute left-3 top-3 z-20">
-                      <div className={`inline-flex items-center justify-center px-2 py-1 rounded-full text-white text-xs font-bold shadow-md ${
-                        idx === 0
-                          ? "bg-gradient-to-r from-yellow-500 to-yellow-600"
-                          : idx === 1
-                          ? "bg-gradient-to-r from-gray-300 to-gray-400 text-slate-800"
-                          : idx === 2
-                          ? "bg-gradient-to-r from-orange-400 to-orange-600"
-                          : "bg-gradient-to-r from-purple-600 to-pink-500"
-                      }`}>
-                        {idx === 0 ? "🥇 #1" : idx === 1 ? "🥈 #2" : idx === 2 ? "🥉 #3" : `#${idx + 1}`}
-                      </div>
-                    </div>
-                    {/* Average rating pill (right) */}
-                    <div className="absolute right-3 top-3 z-20">
-                      <div className="inline-flex items-center justify-center px-2 py-1 rounded-full bg-black/60 text-white text-xs font-medium shadow-sm">
-                        {outfit.averageRating.toFixed(1)}/10
-                      </div>
-                    </div>
-                    <img
-                      src={outfit.image_url}
-                      alt="Outfit"
-                      className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  </div>
+      <main className="max-w-7xl mx-auto px-3 sm:px-8 lg:px-12 py-12 sm:py-20">
+        {/* Hero Section */}
+        <div className="mb-16 sm:mb-24">
+          <h2 className="text-5xl sm:text-7xl lg:text-8xl font-black tracking-tighter leading-tight mb-6">
+            RATE YOUR
+            <br />
+            STYLE
+          </h2>
+          <p className="text-sm sm:text-base text-gray-400 tracking-widest max-w-2xl">
+            UPLOAD OUTFITS AND GET HONEST FEEDBACK FROM THE COMMUNITY. DISCOVER WHAT WORKS.
+          </p>
+        </div>
 
-                  <div className="p-4 relative z-10">
-                    <div className="flex items-center justify-between mb-2">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
+          {/* Left Column - Upload and Rating */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Image Upload Section */}
+            <div className="group relative">
+              <div className="relative bg-black border border-gray-800 p-8 sm:p-12 transition-all duration-300">
+                {imageUrl ? (
+                  <div className="space-y-6">
+                    <div className="relative rounded-xl overflow-hidden bg-slate-800 border border-purple-500/20">
+                      <img
+                        src={imageUrl}
+                        alt="Outfit"
+                        className="w-full h-auto object-contain"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
+                        <button
+                          onClick={() => {
+                            setImageUrl("");
+                            setOutfitId("");
+                            if (fileInputRef.current)
+                              fileInputRef.current.value = "";
+                          }}
+                          className="w-full bg-red-500/90 hover:bg-red-600 text-white font-semibold py-2 rounded-lg transition-colors duration-200"
+                        >
+                          Remove Image
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Rating Section */}
+                    <div className="space-y-4">
+                      <label className="block text-white font-semibold text-lg">
+                        Rate this outfit
+                      </label>
+                      <div className="flex justify-center gap-2 sm:gap-3">
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((score) => (
+                          <button
+                            key={score}
+                            onClick={() => setRating(score)}
+                            onMouseEnter={() => setHoverRating(score)}
+                            onMouseLeave={() => setHoverRating(0)}
+                            disabled={submitting}
+                            className={`w-10 sm:w-12 h-10 sm:h-12 rounded-lg font-bold text-sm sm:text-base transition-all duration-200 transform hover:scale-110 disabled:opacity-50 ${
+                              score <= (hoverRating || rating)
+                                ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/50"
+                                : "bg-slate-800/50 text-purple-300/60 border border-purple-500/20 hover:border-purple-500/50"
+                            }`}
+                          >
+                            {score}
+                          </button>
+                        ))}
+                      </div>
+                      {rating > 0 && (
+                        <div className="text-center">
+                          <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                            {rating}/10
+                          </span>
+                          <p className="text-purple-300/60 text-sm mt-1">
+                            {rating <= 3 && "Not a fan"}
+                            {rating > 3 && rating <= 5 && "Could be better"}
+                            {rating > 5 && rating <= 7 && "Pretty good!"}
+                            {rating > 7 && rating <= 9 && "Looks great!"}
+                            {rating === 10 && "Absolutely fire! 🔥"}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Feedback Section */}
+                    <div className="space-y-2">
+                      <label className="block text-white font-semibold text-sm">
+                        Add feedback (optional)
+                      </label>
+                      <textarea
+                        value={feedback}
+                        onChange={(e) => setFeedback(e.target.value)}
+                        placeholder="Share your thoughts about this outfit..."
+                        disabled={submitting}
+                        className="w-full bg-slate-800/50 border border-purple-500/20 rounded-lg px-4 py-3 text-white placeholder-purple-300/40 focus:outline-none focus:border-purple-500/60 focus:ring-2 focus:ring-purple-500/20 transition-all duration-200 resize-none disabled:opacity-50"
+                        rows={3}
+                      />
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        onClick={handleSubmitRating}
+                        disabled={rating === 0 || submitting}
+                        className={`flex-1 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
+                          rating === 0 || submitting
+                            ? "bg-slate-700/50 text-slate-400"
+                            : "bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:shadow-lg hover:shadow-purple-500/50"
+                        }`}
+                      >
+                        {submitting && (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        )}
+                        Submit Rating
+                      </button>
+                      <button
+                        onClick={handleReset}
+                        disabled={submitting}
+                        className="px-4 py-3 rounded-lg font-semibold bg-slate-800/50 text-purple-300 border border-purple-500/20 hover:border-purple-500/60 transition-all duration-200 hover:bg-slate-800 disabled:opacity-50"
+                      >
+                        <RotateCcw className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Username input */}
+                    <div className="space-y-2">
+                      <label className="block text-white font-semibold text-sm">
+                        Your username <span className="text-pink-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        placeholder="Enter your username"
+                        className="w-full bg-slate-800/50 border border-purple-500/20 rounded-lg px-4 py-3 text-white placeholder-purple-300/40 focus:outline-none focus:border-purple-500/60 focus:ring-2 focus:ring-purple-500/20 transition-all duration-200"
+                        maxLength={50}
+                        required
+                      />
+                    </div>
+
+                    {/* Upload area */}
+                    <div
+                      onClick={() => {
+                        if (!username.trim()) {
+                          toast.error("Please enter your username first");
+                          return;
+                        }
+                        fileInputRef.current?.click();
+                      }}
+                      className={`cursor-pointer ${!username.trim() ? 'opacity-50' : ''}`}
+                    >
+                      <div className="flex flex-col items-center justify-center py-20 sm:py-32 text-center">
+                        <h3 className="text-2xl sm:text-4xl font-black tracking-tighter mb-4">
+                          UPLOAD OUTFIT
+                        </h3>
+                        <p className="text-sm sm:text-base text-gray-400 tracking-wide max-w-md mb-8">
+                          {username.trim() 
+                            ? "CLICK TO UPLOAD YOUR OUTFIT PHOTO"
+                            : "ENTER YOUR USERNAME TO GET STARTED"}
+                        </p>
+                        <div className="w-12 h-12 border-2 border-white"></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    if (!username.trim()) {
+                      toast.error("Please enter your username first");
+                      return;
+                    }
+                    handleImageUpload(e);
+                  }}
+                  className="hidden"
+                  disabled={uploading || submitting || !username.trim()}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column - Ratings History */}
+          <div className="space-y-8">
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tighter mb-2">
+                RECENT RATINGS
+              </h2>
+              <div className="w-12 h-1 bg-white"></div>
+            </div>
+            <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+              {loading ? (
+                <div className="text-center py-12 px-4">
+                  <Loader2 className="w-12 h-12 text-purple-500/50 mx-auto mb-3 animate-spin" />
+                  <p className="text-purple-300/50 text-sm">
+                    Loading ratings...
+                  </p>
+                </div>
+              ) : ratings.length === 0 ? (
+                <div className="text-center py-12 px-4">
+                  <Star className="w-12 h-12 text-purple-500/30 mx-auto mb-3" />
+                  <p className="text-purple-300/50 text-sm">
+                    No ratings yet. Upload an outfit to get started!
+                  </p>
+                </div>
+              ) : (
+                ratings.map((r) => (
+                  <div
+                    key={r.id}
+                    className="bg-slate-900/60 backdrop-blur-xl rounded-xl border border-purple-500/20 p-4 sm:p-5 hover:border-purple-500/40 transition-all duration-200 group"
+                  >
+                    <div className="flex items-start justify-between mb-2">
                       <div className="flex gap-1">
                         {[...Array(10)].map((_, i) => (
                           <div
                             key={i}
-                            className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${
-                              i < Math.round(outfit.averageRating)
+                            className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full transition-all duration-200 ${
+                              i < r.score
                                 ? "bg-gradient-to-r from-purple-500 to-pink-500"
                                 : "bg-slate-700/50"
                             }`}
                           />
                         ))}
                       </div>
+                      <span className="text-lg sm:text-xl font-bold text-transparent bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text">
+                        {r.score}
+                      </span>
                     </div>
-
-                    <div className="flex items-end justify-between mb-3">
-                      <div>
-                        <div className="flex items-baseline gap-2">
-                          <p className="text-lg font-bold text-transparent bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text">
-                            {outfit.averageRating.toFixed(1)}
-                          </p>
-                          <span className="text-sm text-purple-300/80">by {outfit.username}</span>
-                        </div>
-                        <p className="text-purple-300/60 text-xs">
-                          {outfit.totalRatings} rating
-                          {outfit.totalRatings !== 1 ? "s" : ""}
-                        </p>
-                      </div>
-                      <Star className="w-4 h-4 text-pink-400 fill-pink-400" />
-                    </div>
-
-                    {/* Social Share Buttons */}
-                    <div className="border-t border-purple-500/20 pt-3">
-                      <SocialShareButtons outfit={outfit} />
-                    </div>
-
-                    {/* Recent Ratings */}
-                    {outfit.latestRatings.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-purple-500/20">
-                        <div className="space-y-2">
-                          {outfit.latestRatings.map((rating, idx) => (
-                            <div key={idx} className="flex items-start justify-between text-xs">
-                              <div className="flex-1">
-                                <p className="text-purple-200/90 font-medium">
-                                  {rating.username || "Anonymous"}
-                                </p>
-                                      {rating.feedback && (
-                                        <p className="text-purple-300/60 text-xs line-clamp-1 mt-0.5">
-                                          {rating.feedback}
-                                        </p>
-                                      )}
-                                      {rating.tags && rating.tags.length > 0 && (
-                                        <div className="mt-1 flex flex-wrap gap-1">
-                                          {rating.tags.map((t, i) => (
-                                            <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-slate-700/60 text-purple-200">{t}</span>
-                                          ))}
-                                        </div>
-                                      )}
-                              </div>
-                              <div className="flex items-center gap-1 ml-2">
-                                <Star className="w-3 h-3 text-pink-400 fill-pink-400" />
-                                <span className="text-purple-200/90 font-medium">
-                                  {rating.score}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                    {r.feedback && (
+                      <p className="text-purple-200/80 text-sm line-clamp-2 mb-2">
+                        {r.feedback}
+                      </p>
                     )}
+                    <p className="text-purple-300/40 text-xs">
+                      {new Date(r.created_at).toLocaleDateString()}{" "}
+                      {new Date(r.created_at).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
-        )}
+        </div>
       </main>
 
-      {/* Rating Dialog */}
-      <RatingDialog
-        outfit={selectedOutfit}
-        open={ratingDialogOpen}
-        onOpenChange={setRatingDialogOpen}
-        onRatingSubmitted={loadOutfitsWithRatings}
-      />
-
       {/* Footer */}
-      <footer className="border-t border-gray-800 bg-black mt-16 sm:mt-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 py-12 sm:py-16 text-center">
-          <p className="text-xs text-gray-500 tracking-widest">
-            RATEME © 2025 • RATE OUTFITS, GET HONEST FEEDBACK
+      <footer className="border-t border-purple-500/20 backdrop-blur-xl bg-slate-950/50 mt-12 sm:mt-16">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 text-center">
+          <p className="text-purple-300/60 text-sm">
+            RateMe © 2024 • Rate outfits, get honest feedback
           </p>
         </div>
       </footer>
