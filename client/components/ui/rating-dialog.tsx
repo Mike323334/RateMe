@@ -1,13 +1,16 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Loader2, Star } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Loader2, Star, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
-import { Outfit } from "@shared/types";
+import { OutfitWithRating, OutfitItemWithLinks } from "@shared/types";
 import { sanitizeInput, validateNumber, RateLimit } from "@/lib/security";
+import { getOutfit } from "@shared/api";
+
 
 interface RatingDialogProps {
-  outfit: Outfit | null;
+  outfit: OutfitWithRating | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onRatingSubmitted?: () => void;
@@ -59,6 +62,90 @@ export function RatingDialog({
   ]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [outfitItems, setOutfitItems] = useState<OutfitItemWithLinks[]>([]);
+  const [loadingItems, setLoadingItems] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("Initializing...");
+
+  const runServerSideDetection = async () => {
+    if (!outfit) return;
+    
+    try {
+      setLoadingItems(true);
+      setStatusMessage("Analyzing outfit with Google Vision AI...");
+      
+      // Call the dedicated analyze-outfit function
+      const response = await fetch('/.netlify/functions/analyze-outfit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ outfitId: outfit.id }),
+      });
+
+      if (!response.ok) {
+        // Try to parse error message, but handle empty responses
+        let errorMessage = 'Failed to analyze outfit';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          // If JSON parsing fails, use status text
+          errorMessage = `Server error: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      
+      // Fetch the updated outfit with detected items
+      setStatusMessage("Loading detected items...");
+      const updatedOutfit = await getOutfit(outfit.id);
+      
+      if (updatedOutfit.items && updatedOutfit.items.length > 0) {
+        setOutfitItems(updatedOutfit.items);
+        toast.success(`Detected ${updatedOutfit.items.length} clothing item(s)!`);
+      } else {
+        toast.info("No clothing items detected in this image.");
+      }
+    } catch (err) {
+      console.error("Server-side detection failed:", err);
+      toast.error(err instanceof Error ? err.message : "AI Detection failed. Please try again.");
+    } finally {
+      setLoadingItems(false);
+    }
+  };
+
+  // Load outfit items when dialog opens
+  useEffect(() => {
+    if (open && outfit) {
+      // If items are already loaded in the outfit object, use them
+      if (outfit.items && outfit.items.length > 0) {
+        setOutfitItems(outfit.items);
+        return;
+      }
+
+      // Otherwise, try to fetch from API first (legacy/server-side)
+      setLoadingItems(true);
+      setStatusMessage("Checking server...");
+      
+      // Try to get from server first (maybe they were saved previously)
+      getOutfit(outfit.id)
+        .then((fullOutfit) => {
+          if (fullOutfit.items && fullOutfit.items.length > 0) {
+            setOutfitItems(fullOutfit.items);
+            setLoadingItems(false);
+          } else {
+            // If no items on server, don't auto-detect (user can click "Detect Clothing" button)
+            setLoadingItems(false);
+          }
+        })
+        .catch((error) => {
+          console.error("Error loading outfit items from server:", error);
+          // Don't auto-detect on error
+          setLoadingItems(false);
+        });
+    }
+  }, [open, outfit]);
 
   const handleSubmitRating = async () => {
     if (!outfit || rating === 0) {
@@ -119,23 +206,94 @@ export function RatingDialog({
     setRating(0);
     setFeedback("");
     setSelectedTags([]);
+    setOutfitItems([]);
+    setLoadingItems(false);
     onOpenChange(false);
   };
 
   if (!outfit) return null;
 
   return (
-    // Use standard modal dialog (portal + overlay). DialogContent size increased in the shared dialog component.
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="bg-slate-900/90 backdrop-blur-xl border-purple-500/20">
-        <div className="space-y-6">
-          <div className="relative rounded-xl overflow-hidden bg-slate-800 border border-purple-500/20">
-            <img
-              src={outfit.image_url}
-              alt="Outfit to rate"
-              className="w-full h-auto object-contain"
-            />
-          </div>
+    <TooltipProvider>
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="bg-slate-900/90 backdrop-blur-xl border-purple-500/20">
+          <div className="space-y-6">
+            <div className="relative rounded-xl overflow-hidden bg-slate-800 border border-purple-500/20">
+              <img
+                src={outfit.image_url}
+                alt="Outfit to rate"
+                className="w-full h-auto object-contain"
+              />
+              {/* Outfit Items Overlay */}
+              {loadingItems && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm z-10">
+                  <Loader2 className="w-8 h-8 animate-spin text-purple-400 mb-2" />
+                  <p className="text-white font-medium text-sm">{statusMessage}</p>
+                </div>
+              )}
+              
+              {!loadingItems && outfitItems.length === 0 && (
+                 <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
+                    <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
+                        <p className="text-white/80 text-xs font-medium">No items detected</p>
+                    </div>
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={() => {
+                                const fakeItems: OutfitItemWithLinks[] = [
+                                    {
+                                        id: 'test-1',
+                                        outfit_id: outfit.id,
+                                        item_name: 'Test Shirt',
+                                        created_at: new Date().toISOString(),
+                                        bounding_box: { x: 0.2, y: 0.2, width: 0.3, height: 0.3 },
+                                        confidence: 0.99,
+                                        shopping_links: []
+                                    },
+                                    {
+                                        id: 'test-2',
+                                        outfit_id: outfit.id,
+                                        item_name: 'Test Pants',
+                                        created_at: new Date().toISOString(),
+                                        bounding_box: { x: 0.5, y: 0.6, width: 0.3, height: 0.4 },
+                                        confidence: 0.95,
+                                        shopping_links: []
+                                    }
+                                ];
+                                setOutfitItems(fakeItems);
+                            }}
+                            className="bg-slate-700 hover:bg-slate-600 text-white text-xs px-3 py-1.5 rounded-full shadow-lg transition-colors"
+                        >
+                            Simulate
+                        </button>
+                        <button 
+                            onClick={runServerSideDetection}
+                            className="bg-purple-600 hover:bg-purple-500 text-white text-xs px-3 py-1.5 rounded-full shadow-lg transition-colors flex items-center gap-1"
+                        >
+                            <ShoppingBag className="w-3 h-3" />
+                            Detect Clothing
+                        </button>
+                    </div>
+                 </div>
+              )}
+
+              {!loadingItems && outfitItems.length > 0 && outfitItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="absolute flex items-center justify-center"
+                  style={{
+                    left: `${item.bounding_box.x * 100}%`,
+                    top: `${item.bounding_box.y * 100}%`,
+                    width: `${item.bounding_box.width * 100}%`,
+                    height: `${item.bounding_box.height * 100}%`,
+                  }}
+                >
+                  <span className="bg-black/70 backdrop-blur-md text-white text-[10px] font-medium px-2 py-1 rounded-full border border-white/20 shadow-sm whitespace-nowrap">
+                    {item.item_name}
+                  </span>
+                </div>
+              ))}
+            </div>
 
           {/* Rating Section */}
           <div className="space-y-4">
@@ -266,5 +424,6 @@ export function RatingDialog({
         </div>
       </DialogContent>
     </Dialog>
+    </TooltipProvider>
   );
 }

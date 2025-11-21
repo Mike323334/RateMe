@@ -1,12 +1,28 @@
-/**
- * Shared code between client and server
- * Useful to share types between client and server
- * and/or small pure JS functions that can be used on both client and server
- */
+import { supabase } from "@/lib/supabase";
+import { OutfitWithRating } from "./types";
 
-/**
- * Example response type for /api/demo
- */
-export interface DemoResponse {
-  message: string;
+export async function getOutfit(outfitId: string): Promise<OutfitWithRating> {
+  const { data, error } = await supabase
+    .from("outfits")
+    .select(`
+      *,
+      outfit_items (
+        id,
+        item_name,
+        bounding_box,
+        shopping_links (
+          id,
+          url,
+          title,
+          price
+        )
+      )
+    `)
+    .eq("id", outfitId)
+    .single(); // get a single outfit
+
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Outfit not found");
+
+  return data;
 }

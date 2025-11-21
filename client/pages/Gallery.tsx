@@ -169,6 +169,27 @@ export default function RateMe() {
       setImageUrl(data.publicUrl);
       setOutfitId(outfit.id);
       toast.success("Image uploaded successfully!");
+
+      // Trigger AI analysis for outfit pieces
+      try {
+        const response = await fetch('/.netlify/functions/api/analyze-outfit', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ outfitId: outfit.id }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          toast.success(`AI analysis complete! Found ${result.itemsDetected} clothing items.`);
+        } else {
+          console.error('AI analysis failed');
+        }
+      } catch (analysisError) {
+        console.error('Error triggering AI analysis:', analysisError);
+      }
+
       resetRating();
     } catch (error: any) {
       console.error('Error uploading image:', error);

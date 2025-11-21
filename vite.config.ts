@@ -1,7 +1,6 @@
 import { defineConfig, Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
-import path from "path";
-import { createServer } from "./server";
+import { fileURLToPath, URL } from 'node:url';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -9,7 +8,7 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
     fs: {
-      allow: ["./client", "./shared"],
+      allow: ["./client", "./shared","."],
       deny: [".env", ".env.*", "*.{crt,pem}", "**/.git/**", "server/**"],
     },
   },
@@ -19,8 +18,8 @@ export default defineConfig(({ mode }) => ({
   plugins: [react(), expressPlugin()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./client"),
-      "@shared": path.resolve(__dirname, "./shared"),
+      "@": fileURLToPath(new URL('./client', import.meta.url)),
+      "@shared": fileURLToPath(new URL('./shared', import.meta.url)),
     },
   },
 }));
@@ -30,10 +29,12 @@ function expressPlugin(): Plugin {
     name: "express-plugin",
     apply: "serve", // Only apply during development (serve mode)
     configureServer(server) {
-      const app = createServer();
-
-      // Add Express app as middleware to Vite dev server
-      server.middlewares.use(app);
+      // Dynamic import to avoid loading Supabase config during build
+      import("./server").then(({ createServer }) => {
+        const app = createServer();
+        // Add Express app as middleware to Vite dev server
+        server.middlewares.use(app);
+      });
     },
   };
 }

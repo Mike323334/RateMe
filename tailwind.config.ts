@@ -93,11 +93,16 @@ export default {
             height: "0",
           },
         },
+        lean: {
+          '0%, 100%': { transform: 'rotate(-2deg)' },
+          '50%': { transform: 'rotate(2deg)' },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         blink: "blink .7s step-end infinite",
+        lean: "lean 8s ease-in-out infinite",
 
       },
     },

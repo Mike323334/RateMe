@@ -4,8 +4,9 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { RatingDialog } from "@/components/ui/rating-dialog";
+import { OutfitWithRating } from "@shared/types";
 import { SocialShareButtons } from "@/components/ui/social-share-buttons";
-import { Outfit, Rating, OutfitWithRating } from "@shared/types";
+import { Outfit, Rating } from "@shared/types";
 
 export default function Index() {
   const [outfits, setOutfits] = useState<OutfitWithRating[]>([]);
@@ -222,11 +223,11 @@ export default function Index() {
                   }}
                   className={`group relative rounded-xl overflow-hidden transition-all duration-300 transform hover:-translate-y-1 cursor-pointer backdrop-blur-xl ${
                     idx === 0
-                      ? "bg-slate-900/80 border-2 border-yellow-400/60 shadow-lg shadow-yellow-400/30 hover:shadow-xl hover:shadow-yellow-400/40"
+                      ? "bg-slate-900/80 border-2 border-yellow-400/60 shadow-lg shadow-yellow-400/30 hover:shadow-xl hover:shadow-yellow-400/40 animate-lean"
                       : idx === 1
-                      ? "bg-slate-900/75 border-2 border-gray-300/50 shadow-lg shadow-gray-300/20 hover:shadow-xl hover:shadow-gray-300/30"
+                      ? "bg-slate-900/75 border-2 border-gray-300/50 shadow-lg shadow-gray-300/20 hover:shadow-xl hover:shadow-gray-300/30 animate-lean"
                       : idx === 2
-                      ? "bg-slate-900/70 border-2 border-orange-400/50 shadow-lg shadow-orange-400/20 hover:shadow-xl hover:shadow-orange-400/30"
+                      ? "bg-slate-900/70 border-2 border-orange-400/50 shadow-lg shadow-orange-400/20 hover:shadow-xl hover:shadow-orange-400/30 animate-lean"
                       : "bg-slate-900/60 border border-purple-500/20 hover:border-purple-500/40 hover:shadow-lg hover:shadow-purple-500/20"
                   }`}
                 >
