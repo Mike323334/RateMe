@@ -47,9 +47,12 @@ export const handler: Handler = async (event) => {
   }
 
   try {
+    console.log('Function invoked, parsing body...');
     const { outfitId } = JSON.parse(event.body || '{}');
+    console.log('Outfit ID:', outfitId);
 
     if (!outfitId) {
+      console.error('Missing outfitId in request');
       return {
         statusCode: 400,
         headers,
@@ -83,26 +86,31 @@ export const handler: Handler = async (event) => {
 
     // Analyze image with Google Vision API
     console.log('Analyzing image:', outfit.image_url);
+    console.log('Image URL type:', typeof outfit.image_url);
+    console.log('Image URL length:', outfit.image_url?.length);
+    
+    if (!outfit.image_url || !outfit.image_url.startsWith('http')) {
+      console.error('Invalid image URL:', outfit.image_url);
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: 'Invalid image URL' }),
+      };
+    }
+    
     const [result] = await visionClient.objectLocalization(outfit.image_url);
     const objects = result.localizedObjectAnnotations || [];
+    
+    console.log('Raw Vision API response:', JSON.stringify(result, null, 2));
+    console.log('Number of objects detected:', objects.length);
 
     console.log('Detected objects:', objects.map((obj: any) => ({ name: obj.name, score: obj.score })));
 
-    // More flexible clothing detection
-    const clothingKeywords = [
-      'clothing', 'apparel', 'wear', 'garment', 'outfit',
-      'shirt', 'top', 'blouse', 't-shirt', 'tee', 'tank', 'sweater', 'hoodie', 'jacket', 'coat',
-      'pants', 'trousers', 'jeans', 'shorts', 'skirt', 'dress',
-      'shoes', 'footwear', 'sneakers', 'boots', 'sandals',
-      'hat', 'cap', 'bag', 'accessory'
-    ];
+    // TEMPORARY: Accept ALL objects to see what Google Vision detects
+    // Filter only by confidence score
+    const clothingItems = objects.filter((obj: any) => obj.score > 0.5);
 
-    const clothingItems = objects.filter((obj: any) => {
-      const nameLower = obj.name.toLowerCase();
-      return clothingKeywords.some(keyword => nameLower.includes(keyword));
-    });
-
-    console.log(`Found ${clothingItems.length} clothing items`);
+    console.log(`Found ${clothingItems.length} items with confidence > 0.5`);
 
     // Save detected items to database
     for (const obj of clothingItems) {
@@ -130,12 +138,17 @@ export const handler: Handler = async (event) => {
         items: clothingItems.map((obj: any) => obj.name)
       }),
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error analyzing outfit:', error);
+    console.error('Error stack:', error?.stack);
+    console.error('Error message:', error?.message);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Internal server error' }),
+      body: JSON.stringify({ 
+        error: 'Internal server error',
+        details: error?.message || 'Unknown error'
+      }),
     };
   }
 };
