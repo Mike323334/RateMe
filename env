@@ -1,0 +1,18 @@
+# .env is better suited for public variables, ie, variables that should not commited
+# For secret variables is better to use DevServerControl tool with set_env_variable: ["KEY", "SECRET"]
+
+# https://www.builder.io/c/docs/using-your-api-key
+VITE_PUBLIC_BUILDER_KEY=__BUILDER_PUBLIC_KEY__
+PING_MESSAGE="ping pong"
+
+# Supabase Configuration
+# Get these from: https://supabase.com/dashboard/project/YOUR_PROJECT/settings/api
+VITE_SUPABASE_URL=https://vrpomdmljjpoezvdlpdk.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZycG9tZG1sampwb2V6dmRscGRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIwMzEyNTAsImV4cCI6MjA3NzYwNzI1MH0.rGUP_NTq-eoHavOvclTBiX4q0y0qoCjsxTw-5i3lCj8
+
+# API URL (change for production)
+VITE_API_URL=https://vrpomdmljjpoezvdlpdk.supabase.co/functions/v1/hyper-handler
+
+# Hugging Face API (100% FREE - No billing required!)
+# Get from: https://huggingface.co/settings/tokens
+# Click "New token" -> Name it "RateMe" -> Role: "read" -> Create
