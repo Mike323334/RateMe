@@ -25,3 +25,15 @@ dist-ssr
 
 .config/
 !.env
+
+# Firebase
+.firebase/
+
+# Supabase
+.supabase/
+supabase/.branches/
+supabase/.temp/
+
+# Google Cloud Service Account (NEVER commit this!)
+service-account-key.json
+*-service-account-key.json
